@@ -1,38 +1,35 @@
-import { useState, useEffect } from 'react'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { RouterProvider } from 'react-router';
+import { Toaster } from './components/ui/sonner';
+import { router } from './routes';
 
-function App() {
-  const [connectionInfo, setConnectionInfo] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  
-  //send request for api diagnostic route
+export default function App() {
+  const [isApiReady, setIsApiReady] = useState(false);
+
   useEffect(() => {
+    // Check if Docker API is alive
     fetch('http://localhost:8080/api/health')
-    .then(response => {
-      if (!response.ok) throw new Error('API not responding.');
-      return response.json();
-    })
-    .then(data => setConnectionInfo(data))
-    .catch(err => setError(err.message));
+      .then(res => {
+        if (res.ok) setIsApiReady(true);
+      })
+      .catch(() => console.log("Waiting for Docker backend..."));
   }, []);
 
-  return (
-    <div className='App'>
-      <h1>Score</h1>
-      <div>
-        {error ? (
-          <p style={{color:'red'}}>Error: {error}</p>
-        ) : connectionInfo ? (
-          <div>
-            <p>Connected to API successfully.</p>
-            <p>Database Time: {new Date(connectionInfo.db_time).toLocaleString()}</p>
-          </div>
-        ) : (
-          <p>Connecting...</p>
-        )}
+  if (!isApiReady) {
+    return (
+      <div className="dark min-h-screen bg-[#0A1612] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-yellow-500 text-sm animate-pulse mb-2">Connecting to Score! Engine...</p>
+          <p className="text-white/20 text-xs">Ensure Docker Desktop is running</p>
+        </div>
       </div>
-    </div>
-  )
-}
+    );
+  }
 
-export default App
+  return (
+    <div className="dark size-full">
+      <RouterProvider router={router} />
+      <Toaster />
+    </div>
+  );
+}
