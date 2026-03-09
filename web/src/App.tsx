@@ -1,38 +1,37 @@
 import { useState, useEffect } from 'react'
-import './App.css'
+import MatchCards from './webpages/homepage'
 
 function App() {
-  const [connectionInfo, setConnectionInfo] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  
-  //send request for api diagnostic route
+  const [connectionInfo, setConnectionInfo] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     fetch('http://localhost:8080/api/health')
-    .then(response => {
-      if (!response.ok) throw new Error('API not responding.');
-      return response.json();
-    })
-    .then(data => setConnectionInfo(data))
-    .catch(err => setError(err.message));
-  }, []);
+      .then(response => {
+        if (!response.ok) throw new Error('API not responding.')
+        return response.json()
+      })
+      .then(data => setConnectionInfo(data))
+      .catch(err => setError(err.message))
+  }, [])
 
-  return (
-    <div className='App'>
-      <h1>Score</h1>
-      <div>
-        {error ? (
-          <p style={{color:'red'}}>Error: {error}</p>
-        ) : connectionInfo ? (
-          <div>
-            <p>Connected to API successfully.</p>
-            <p>Database Time: {new Date(connectionInfo.db_time).toLocaleString()}</p>
-          </div>
-        ) : (
-          <p>Connecting...</p>
-        )}
+  if (error) {
+    return (
+      <div className="bg-[#0D1A0D] min-h-screen flex items-center justify-center">
+        <p className="text-red-400 text-sm">Error: {error}</p>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (!connectionInfo) {
+    return (
+      <div className="bg-[#0D1A0D] min-h-screen flex items-center justify-center">
+        <p className="text-yellow-500 text-sm">Connecting...</p>
+      </div>
+    )
+  }
+
+  return <MatchCards />
 }
 
 export default App
