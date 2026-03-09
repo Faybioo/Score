@@ -1,37 +1,35 @@
-import { useState, useEffect } from 'react'
-import MatchCards from './webpages/homepage'
+import { useState, useEffect } from 'react';
+import { RouterProvider } from 'react-router';
+import { Toaster } from './components/ui/sonner';
+import { router } from './routes';
 
-function App() {
-  const [connectionInfo, setConnectionInfo] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
+export default function App() {
+  const [isApiReady, setIsApiReady] = useState(false);
 
   useEffect(() => {
+    // Check if Docker API is alive
     fetch('http://localhost:8080/api/health')
-      .then(response => {
-        if (!response.ok) throw new Error('API not responding.')
-        return response.json()
+      .then(res => {
+        if (res.ok) setIsApiReady(true);
       })
-      .then(data => setConnectionInfo(data))
-      .catch(err => setError(err.message))
-  }, [])
+      .catch(() => console.log("Waiting for Docker backend..."));
+  }, []);
 
-  if (error) {
+  if (!isApiReady) {
     return (
-      <div className="bg-[#0D1A0D] min-h-screen flex items-center justify-center">
-        <p className="text-red-400 text-sm">Error: {error}</p>
+      <div className="dark min-h-screen bg-[#0A1612] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-yellow-500 text-sm animate-pulse mb-2">Connecting to Score! Engine...</p>
+          <p className="text-white/20 text-xs">Ensure Docker Desktop is running</p>
+        </div>
       </div>
-    )
+    );
   }
 
-  if (!connectionInfo) {
-    return (
-      <div className="bg-[#0D1A0D] min-h-screen flex items-center justify-center">
-        <p className="text-yellow-500 text-sm">Connecting...</p>
-      </div>
-    )
-  }
-
-  return <MatchCards />
+  return (
+    <div className="dark size-full">
+      <RouterProvider router={router} />
+      <Toaster />
+    </div>
+  );
 }
-
-export default App
