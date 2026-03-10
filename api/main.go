@@ -3,35 +3,42 @@ package main
 import (
 	"net/http"
 	"fmt"
-	"os"
 	"log"
-	"database/sql"
+	"encoding/json"
+
+	"github.com/Faybioo/Score/models"
+	"github.com/Faybioo/Score/services"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/cors"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 
 )
 
 func main() {
-	// open connection to database, ping to ensure reachable
-	db_url := os.Getenv("DB_URL")
-	if db_url == "" {
-		log.Fatal("DB_URL environment variable not set.")
+	err := godotenv.Load()
+	if err != nil {
+		log.Println(".env file not found, using system environment variables.")
 	}
 
-	db, err := sql.Open("pgx", db_url)
-	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
-	}
+	db := ConnectDB()
 	defer db.Close()
 
-	err = db.Ping();
-	if err != nil {
-		log.Fatalf("Database is unreachable: %v", err)
-	}
-	fmt.Println("Successfully established connection to database.")
+  //migration / table creation
+	if err := Migrate(db); err != nil {
+        log.Fatalf("Migration failed: %v", err)
+    }
+
+	//sync json match data
+	const gistURL = "https://gist.githubusercontent.com/ferns5/1b90d98ce188fbc68cebc3e731be7d9c/raw/ae643158c1b6090380894cca89b86653e557a843/matches.json"
+	go func() {
+		fmt.Println("Synchronizing match data...")
+		if err := services.SyncMatchesFromGist(db, gistURL); err != nil {
+			fmt.Printf("Sync warning: %v\n", err)
+		}
+	}()
 
 	//establish router/cors so react can communicate with the API
 	r := chi.NewRouter()
@@ -59,6 +66,30 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"status": "ok", "db_time": "%s"}`, db_time)
+	})
+
+
+	r.Get("/api/matches", func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.Query("SELECT id, kickoff, host_city, stadium, home_team, away_team, status FROM public.matches")
+		if err != nil {
+			http.Error(w, "Query Error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var matches []models.Match
+		for rows.Next() {
+			var m models.Match
+			err := rows.Scan(&m.ID, &m.Kickoff, &m.HostCity, &m.Stadium, &m.HomeTeam, &m.AwayTeam, &m.Status)
+			if err != nil {
+				log.Println("Scan error:", err)
+				continue
+			}
+			matches = append(matches, m)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(matches)
 	})
 
 	fmt.Printf("API listening on :8080...")
