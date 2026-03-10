@@ -1,14 +1,23 @@
 FROM "golang:1.25-alpine"
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY api/go.mod api/go.sum ./
 RUN go mod download
 
-COPY . .
-RUN go build -v -o /usr/local/bin/app ./...
+COPY api/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+COPY --from=0 /app/main .
+COPY .env .
+RUN chmod +x ./main
 
 EXPOSE 8080
+CMD ["./main"]
 
-CMD ["app"]
+
 
