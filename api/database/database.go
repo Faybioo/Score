@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"database/sql"
@@ -51,6 +51,18 @@ func Migrate(db *sql.DB) error {
     if err != nil {
         return fmt.Errorf("could not create matches table: %w", err)
     }
+
+	query = `
+	CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    auth0_id VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);`
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("could not create user table: %w", err)
+	}
 
     log.Println("Database migration completed (table ensured)")
     return nil

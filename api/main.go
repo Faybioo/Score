@@ -8,9 +8,12 @@ import (
 
 	"github.com/Faybioo/Score/models"
 	"github.com/Faybioo/Score/services"
+	"github.com/Faybioo/Score/database"
+	authMiddleware "github.com/Faybioo/Score/middleware"
+	"github.com/Faybioo/Score/handlers"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/cors"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
@@ -23,11 +26,11 @@ func main() {
 		log.Println(".env file not found, using system environment variables.")
 	}
 
-	db := ConnectDB()
+	db := database.ConnectDB()
 	defer db.Close()
 
   //migration / table creation
-	if err := Migrate(db); err != nil {
+	if err := database.Migrate(db); err != nil {
         log.Fatalf("Migration failed: %v", err)
     }
 
@@ -43,8 +46,8 @@ func main() {
 	//establish router/cors so react can communicate with the API
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
 
   c := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:5173"},
@@ -90,6 +93,14 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(matches)
+	})
+
+	//must be logged in as USER
+	r.Group(func(r chi.Router) {
+    r.Use(authMiddleware.EnsureValidToken)
+		r.Post("/api/user/sync", handlers.SyncUser(db))
+		r.Get("/api/user/profile", handlers.GetProfile(db))
+    //r.Post("/api/user/saved-matches", handlers.SaveMatch)
 	})
 
 	fmt.Printf("API listening on :8080...")
