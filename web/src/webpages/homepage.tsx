@@ -86,7 +86,7 @@ export default function Homepage() {
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Follow Your Country</Label>
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                   <SelectTrigger className="bg-black/20 border-white/10 h-12">
-                    <SelectValue placeholder="Select a nation..." />
+                    <SelectValue placeholder="Select a country..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a2e1a] border-white/10 text-white">
                     {teams.map((t) => (
