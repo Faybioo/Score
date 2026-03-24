@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface Match {
   id: number;
@@ -38,7 +39,7 @@ const CITY_DATA: Record<string, { country: string; code: string }> = {
 };
 
 export default function Homepage() {
-  const navigate = useNavigate();
+  const { logout, isAuthenticated, loginWithRedirect, isLoading: authLoading } = useAuth0();  const navigate = useNavigate();
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -102,9 +103,38 @@ export default function Homepage() {
             <button onClick={() => scrollToSection('matches')} className="hover:text-yellow-500 transition-colors">Matches</button>
             <button onClick={() => scrollToSection('destinations')} className="hover:text-yellow-500 transition-colors">Destinations</button>
           </nav>
-          <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 hover:text-yellow-500" onClick={() => navigate('/login')}>
-            Sign In
-          </Button>
+          <div className="flex items-center gap-4">
+            {!authLoading && (
+              <>
+                {isAuthenticated ? (
+                  <>
+                    <button 
+                      onClick={() => navigate('/dashboard')} 
+                      className="text-sm font-medium text-white/60 hover:text-yellow-500 transition-colors mr-2"
+                    >
+                      Dashboard
+                    </button>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-500"
+                      onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+                    >
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    className="border-white/20 text-white hover:bg-white/10 hover:text-yellow-500" 
+                    onClick={() => navigate('/login')}
+                  >
+                    Sign In
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </header>
 

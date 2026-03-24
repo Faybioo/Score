@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RouterProvider } from 'react-router';
 import { Toaster } from './components/ui/sonner';
-import { Auth0Provider } from '@auth0/auth0-react';
+import { Auth0Provider, type AppState, type User } from '@auth0/auth0-react';
 import { router } from './routes';
 
 // @ts-expect-error - Vite injects 'env' into import.meta at runtime, which is not part of the standard TypeScript ImportMeta interface.
@@ -12,6 +12,10 @@ const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
 
 // @ts-expect-error - TypeScript is unaware of the custom 'env' property on import.meta without a dedicated vite-env.d.ts declaration file.
 const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+
+interface ScoreUser extends User {
+  'https://score-app.com/roles'?: string[];
+}
 
 export default function App() {
   const [isApiReady, setIsApiReady] = useState(false);
@@ -24,6 +28,17 @@ export default function App() {
       })
       .catch(() => console.log("Waiting for Docker backend..."));
   }, []);
+
+const onRedirectCallback = (_appState?: AppState, user?: ScoreUser) => {
+    const roles = user?.['https://score-app.com/roles'] || [];
+    const isAdmin = roles.some(role => role.toLowerCase() === 'admin');
+    
+    if (isAdmin) {
+      window.location.replace('/admin');
+    } else {
+      window.location.replace('/dashboard');
+    }
+  };
 
   if (!isApiReady) {
     return (
@@ -44,6 +59,9 @@ export default function App() {
         redirect_uri: window.location.origin,
         audience: audience, 
       }}
+      onRedirectCallback={onRedirectCallback}
+      cacheLocation="localstorage"
+      useRefreshTokens={true}
     >
       <div className="dark size-full">
         <RouterProvider router={router} />

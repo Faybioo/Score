@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { Trophy, Calendar, Plane, Search, LogOut } from 'lucide-react';
+import { Trophy, Calendar, Plane, Search, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { useAuth0 } from '@auth0/auth0-react';
@@ -7,7 +7,13 @@ import { useEffect } from 'react';
 
 export default function Dashboard() {
   const navigate=useNavigate();
-  const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const { user, getAccessTokenSilently, isAuthenticated, isLoading, logout } = useAuth0();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isLoading, isAuthenticated, navigate]);
 
   useEffect(() => {
     const syncUser = async () => {
@@ -34,6 +40,14 @@ export default function Dashboard() {
     syncUser();
   }, [isAuthenticated, user, getAccessTokenSilently]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0A1612] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
+      </div>
+    );
+  }
+  
   const stats=[{label: "Saved Trips", value: 0, icon: Calendar}, {label: "Total Destinations", value: 0, icon: Plane}, 
     {label: "Matches Planned", value: 0, icon: Trophy}
   ];
@@ -54,8 +68,9 @@ export default function Dashboard() {
                 <Search className="h-4 w-4"/>
                 Find Trips
             </Button>
-            <Button
-            className='flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors'>
+            <Button 
+              onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+              className='flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors'>
                 <LogOut className=' h-4 w-4'/>
                 Sign Out
             </Button>
