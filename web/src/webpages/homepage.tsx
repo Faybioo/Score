@@ -115,10 +115,7 @@ export default function Homepage() {
           </p>
 
           <div className="max-w-2xl mx-auto bg-[#122620] border border-white/10 p-6 md:p-8 rounded-3xl shadow-2xl backdrop-blur-sm text-left">
-            <Tabs 
-              value={searchType} 
-              onValueChange={(v) => setSearchType(v as 'match' | 'team' | 'city')}
-            >
+            <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'match' | 'team' | 'city')}>
               <TabsList className="grid w-full grid-cols-3 mb-8 bg-[#1A3A2E] p-1 rounded-xl">
                 <TabsTrigger value="match">Match</TabsTrigger>
                 <TabsTrigger value="team">Team</TabsTrigger>
@@ -129,12 +126,12 @@ export default function Homepage() {
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Select</Label>
                 <Select value={selectedMatch} onValueChange={setSelectedMatch}>
                   <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
-                    <SelectValue placeholder={isLoading ? "Loading Matches..." : "Choose a match..."} />
+                    <SelectValue placeholder={isLoading ? "Loading..." : "Choose a match..."} />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white">
+                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white max-h-60 overflow-y-auto">
                     {matches.map((m) => (
                       <SelectItem key={m.id} value={m.id.toString()}>
-                        {m.home_team} vs {m.away_team} ({m.host_city})
+                        {m.home_team} vs {m.away_team} — {m.host_city}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -144,10 +141,10 @@ export default function Homepage() {
               <TabsContent value="team" className="space-y-4">
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Follow Your Country</Label>
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                  <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
+                  <SelectTrigger className="bg-black/20 border-white/10 h-12">
                     <SelectValue placeholder="Select a country..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white">
+                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white max-h-60 overflow-y-auto">
                     {uniqueTeams.map((t) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
@@ -158,10 +155,10 @@ export default function Homepage() {
               <TabsContent value="city" className="space-y-4">
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Destination</Label>
                 <Select value={selectedCity} onValueChange={setSelectedCity}>
-                  <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
+                  <SelectTrigger className="bg-black/20 border-white/10 h-12">
                     <SelectValue placeholder="Select host city..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white">
+                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white max-h-60 overflow-y-auto">
                     {uniqueCities.map((cityName) => (
                       <SelectItem key={cityName} value={cityName}>{cityName}</SelectItem>
                     ))}
@@ -185,33 +182,32 @@ export default function Homepage() {
             <h2 className="text-4xl font-bold mb-4 font-serif">Featured Matches</h2>
             <p className="text-white/40">Secure your travel before the crowds arrive.</p>
           </div>
-          <div className="grid gap-4 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-7xl mx-auto">
             {isLoading ? (
-               <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-yellow-500" /></div>
-            ) : matches.map((match) => (
-              <Card key={match.id} className="bg-[#122620] border-white/10 p-6 hover:border-yellow-600/40 transition-all group">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div className="flex-1 text-center md:text-left text-white">
-                    <Badge className="bg-yellow-600/20 text-yellow-500 border-none mb-4 uppercase text-[10px] tracking-tighter">
-                      {match.status}
-                    </Badge>
-                    <div className="flex items-center justify-center md:justify-start gap-6 mb-4">
-                      <span className="text-2xl font-bold">{match.home_team}</span>
-                      <span className="text-yellow-500 font-black text-sm">VS</span>
-                      <span className="text-2xl font-bold">{match.away_team}</span>
-                    </div>
-                    <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs text-white/40">
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {match.stadium}, {match.host_city}</span>
-                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(match.kickoff).toLocaleDateString()}</span>
-                    </div>
+               <div className="col-span-full flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-yellow-500" /></div>
+            ) : matches.slice(0, 24).map((match) => (
+              <Card key={match.id} className="bg-[#122620] border-white/10 p-4 hover:border-yellow-600/40 transition-all group flex flex-col justify-between">
+                <div>
+                  <Badge className="bg-yellow-600/20 text-yellow-500 border-none mb-3 uppercase text-[9px] tracking-tighter">
+                    {match.status}
+                  </Badge>
+                  <div className="mb-3">
+                    <p className="text-sm font-bold text-white leading-tight">{match.home_team}</p>
+                    <p className="text-yellow-500 font-black text-xs my-1">VS</p>
+                    <p className="text-sm font-bold text-white leading-tight">{match.away_team}</p>
                   </div>
-                  <Button 
-                    className="bg-yellow-600 text-black font-bold hover:bg-yellow-500" 
-                    onClick={() => { setSelectedMatch(match.id.toString()); setSearchType('match'); scrollToSection('hero'); }}
-                  >
-                    Book Now <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="space-y-1 text-[11px] text-white/40">
+                    <p className="flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /> {match.host_city}</p>
+                    <p className="flex items-center gap-1"><Calendar className="h-3 w-3 shrink-0" /> {new Date(match.kickoff).toLocaleDateString()}</p>
+                  </div>
                 </div>
+                <Button
+                  size="sm"
+                  className="mt-4 w-full bg-yellow-600 text-black font-bold hover:bg-yellow-500 text-xs h-8"
+                  onClick={() => { setSelectedMatch(match.id.toString()); setSearchType('match'); scrollToSection('hero'); }}
+                >
+                  Book Now <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
               </Card>
             ))}
           </div>
