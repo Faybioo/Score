@@ -18,8 +18,7 @@ export default function Homepage() {
 
   const handleSearch = () => {
     console.log('Searching for:', searchType, selectedMatch)
-
-    navigate(`/search`); // TODO: Update this to navigate to the actual search results page when implemented
+    navigate(`/search`);
   };
 
   const scrollToSection = (id: string) => {
@@ -74,7 +73,7 @@ export default function Homepage() {
                   <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
                     <SelectValue placeholder="Choose a match..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white">
+                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white max-h-60 overflow-y-auto">
                     {mockMatches.map((m) => (
                       <SelectItem key={m.id} value={m.id}>{m.homeTeam} vs {m.awayTeam} — {m.city}</SelectItem>
                     ))}
@@ -88,7 +87,7 @@ export default function Homepage() {
                   <SelectTrigger className="bg-black/20 border-white/10 h-12">
                     <SelectValue placeholder="Select a country..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2e1a] border-white/10 text-white">
+                  <SelectContent className="bg-[#1a2e1a] border-white/10 text-white max-h-60 overflow-y-auto">
                     {teams.map((t) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
@@ -102,7 +101,7 @@ export default function Homepage() {
                   <SelectTrigger className="bg-black/20 border-white/10 h-12">
                     <SelectValue placeholder="Select host city..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2e1a] border-white/10 text-white">
+                  <SelectContent className="bg-[#1a2e1a] border-white/10 text-white max-h-60 overflow-y-auto">
                     {cities.map((c) => (
                       <SelectItem key={c.code} value={c.code}>{c.name}, {c.country}</SelectItem>
                     ))}
@@ -126,28 +125,30 @@ export default function Homepage() {
             <h2 className="text-4xl font-bold mb-4 font-serif">Featured Matches</h2>
             <p className="text-white/40">Secure your travel before the crowds arrive.</p>
           </div>
-          <div className="grid gap-4 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-7xl mx-auto">
             {mockMatches.map((match) => (
-              <Card key={match.id} className="bg-[#122620] border-white/10 p-6 hover:border-yellow-600/40 transition-all group">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div className="flex-1 text-center md:text-left text-white">
-                    <Badge className="bg-yellow-600/20 text-yellow-500 border-none mb-4 uppercase text-[10px] tracking-tighter">
-                      {match.stage}
-                    </Badge>
-                    <div className="flex items-center justify-center md:justify-start gap-6 mb-4">
-                      <span className="text-2xl font-bold">{match.homeTeam}</span>
-                      <span className="text-yellow-500 font-black text-sm">VS</span>
-                      <span className="text-2xl font-bold">{match.awayTeam}</span>
-                    </div>
-                    <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs text-white/40">
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {match.venue}, {match.city}</span>
-                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {match.date}</span>
-                    </div>
+              <Card key={match.id} className="bg-[#122620] border-white/10 p-4 hover:border-yellow-600/40 transition-all group flex flex-col justify-between">
+                <div>
+                  <Badge className="bg-yellow-600/20 text-yellow-500 border-none mb-3 uppercase text-[9px] tracking-tighter">
+                    {match.stage}
+                  </Badge>
+                  <div className="mb-3">
+                    <p className="text-sm font-bold text-white leading-tight">{match.homeTeam}</p>
+                    <p className="text-yellow-500 font-black text-xs my-1">VS</p>
+                    <p className="text-sm font-bold text-white leading-tight">{match.awayTeam}</p>
                   </div>
-                  <Button className="bg-yellow-600 text-black font-bold hover:bg-yellow-500" onClick={() => { setSelectedMatch(match.id); setSearchType('match'); scrollToSection('hero'); }}>
-                    Book Now <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="space-y-1 text-[11px] text-white/40">
+                    <p className="flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /> {match.city}</p>
+                    <p className="flex items-center gap-1"><Calendar className="h-3 w-3 shrink-0" /> {match.date}</p>
+                  </div>
                 </div>
+                <Button
+                  size="sm"
+                  className="mt-4 w-full bg-yellow-600 text-black font-bold hover:bg-yellow-500 text-xs h-8"
+                  onClick={() => { setSelectedMatch(match.id); setSearchType('match'); scrollToSection('hero'); }}
+                >
+                  Book Now <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
               </Card>
             ))}
           </div>
