@@ -1,25 +1,82 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Trophy, Plane, Calendar, MapPin, Search, ArrowRight } from 'lucide-react';
+import { Trophy, Plane, Calendar, MapPin, Search, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
-import { teams, cities, mockMatches } from '../mockData'; 
+
+interface Match {
+  id: number;
+  kickoff: string;
+  host_city: string;
+  stadium: string;
+  home_team: string;
+  away_team: string;
+  status: string;
+}
+
+const CITY_DATA: Record<string, { country: string; code: string }> = {
+  "Atlanta": { country: "USA", code: "ATL" },
+  "Boston": { country: "USA", code: "BOS" },
+  "Dallas": { country: "USA", code: "DFW" },
+  "Guadalajara": { country: "Mexico", code: "GDL" },
+  "Houston": { country: "USA", code: "IAH" },
+  "Kansas City": { country: "USA", code: "MCI" },
+  "Los Angeles": { country: "USA", code: "LAX" },
+  "Mexico City": { country: "Mexico", code: "MEX" },
+  "Miami": { country: "USA", code: "MIA" },
+  "Monterrey": { country: "Mexico", code: "MTY" },
+  "New York/New Jersey": { country: "USA", code: "NYC" },
+  "Philadelphia": { country: "USA", code: "PHL" },
+  "San Francisco": { country: "USA", code: "SFO" },
+  "Seattle": { country: "USA", code: "SEA" },
+  "Toronto": { country: "Canada", code: "YYZ" },
+  "Vancouver": { country: "Canada", code: "YVR" },
+};
 
 export default function Homepage() {
   const navigate = useNavigate();
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [searchType, setSearchType] = useState<'match' | 'team' | 'city'>('match');
   const [selectedMatch, setSelectedMatch] = useState('');
   const [selectedTeam, setSelectedTeam] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
 
-  const handleSearch = () => {
-    console.log('Searching for:', searchType, selectedMatch)
+  useEffect(() => {
+    const fetchMatches = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/matches');
+        const data = await response.json();
+        setMatches(data || []);
+      } catch (error) {
+        console.error("Error fetching matches from backend:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchMatches();
+  }, []);
 
-    navigate(`/search`); // TODO: Update this to navigate to the actual search results page when implemented
+  // Get teams from matches
+  const uniqueTeams = Array.from(new Set(
+    matches.flatMap(m => [m.home_team, m.away_team])
+  )).sort();
+
+  // Get cities from matches
+  const uniqueCities = Array.from(new Set(
+    matches.map(m => m.host_city)
+  )).sort();
+
+  const handleSearch = () => {
+    const query = searchType === 'match' ? selectedMatch : (searchType === 'team' ? selectedTeam : selectedCity);
+    if (!query) return;
+
+    navigate(`/search?type=${searchType}&q=${encodeURIComponent(query)}`);
   };
 
   const scrollToSection = (id: string) => {
@@ -72,11 +129,13 @@ export default function Homepage() {
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Select</Label>
                 <Select value={selectedMatch} onValueChange={setSelectedMatch}>
                   <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
-                    <SelectValue placeholder="Choose a match..." />
+                    <SelectValue placeholder={isLoading ? "Loading Matches..." : "Choose a match..."} />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1A3A2E] border-white/10 text-white">
-                    {mockMatches.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.homeTeam} vs {m.awayTeam} — {m.city}</SelectItem>
+                    {matches.map((m) => (
+                      <SelectItem key={m.id} value={m.id.toString()}>
+                        {m.home_team} vs {m.away_team} ({m.host_city})
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -85,11 +144,11 @@ export default function Homepage() {
               <TabsContent value="team" className="space-y-4">
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Follow Your Country</Label>
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                  <SelectTrigger className="bg-black/20 border-white/10 h-12">
+                  <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
                     <SelectValue placeholder="Select a country..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2e1a] border-white/10 text-white">
-                    {teams.map((t) => (
+                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white">
+                    {uniqueTeams.map((t) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
                   </SelectContent>
@@ -99,12 +158,12 @@ export default function Homepage() {
               <TabsContent value="city" className="space-y-4">
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Destination</Label>
                 <Select value={selectedCity} onValueChange={setSelectedCity}>
-                  <SelectTrigger className="bg-black/20 border-white/10 h-12">
+                  <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
                     <SelectValue placeholder="Select host city..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a2e1a] border-white/10 text-white">
-                    {cities.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>{c.name}, {c.country}</SelectItem>
+                  <SelectContent className="bg-[#1A3A2E] border-white/10 text-white">
+                    {uniqueCities.map((cityName) => (
+                      <SelectItem key={cityName} value={cityName}>{cityName}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -127,24 +186,29 @@ export default function Homepage() {
             <p className="text-white/40">Secure your travel before the crowds arrive.</p>
           </div>
           <div className="grid gap-4 max-w-4xl mx-auto">
-            {mockMatches.map((match) => (
+            {isLoading ? (
+               <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-yellow-500" /></div>
+            ) : matches.map((match) => (
               <Card key={match.id} className="bg-[#122620] border-white/10 p-6 hover:border-yellow-600/40 transition-all group">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                   <div className="flex-1 text-center md:text-left text-white">
                     <Badge className="bg-yellow-600/20 text-yellow-500 border-none mb-4 uppercase text-[10px] tracking-tighter">
-                      {match.stage}
+                      {match.status}
                     </Badge>
                     <div className="flex items-center justify-center md:justify-start gap-6 mb-4">
-                      <span className="text-2xl font-bold">{match.homeTeam}</span>
+                      <span className="text-2xl font-bold">{match.home_team}</span>
                       <span className="text-yellow-500 font-black text-sm">VS</span>
-                      <span className="text-2xl font-bold">{match.awayTeam}</span>
+                      <span className="text-2xl font-bold">{match.away_team}</span>
                     </div>
                     <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs text-white/40">
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {match.venue}, {match.city}</span>
-                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {match.date}</span>
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {match.stadium}, {match.host_city}</span>
+                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(match.kickoff).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <Button className="bg-yellow-600 text-black font-bold hover:bg-yellow-500" onClick={() => { setSelectedMatch(match.id); setSearchType('match'); scrollToSection('hero'); }}>
+                  <Button 
+                    className="bg-yellow-600 text-black font-bold hover:bg-yellow-500" 
+                    onClick={() => { setSelectedMatch(match.id.toString()); setSearchType('match'); scrollToSection('hero'); }}
+                  >
                     Book Now <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -162,30 +226,34 @@ export default function Homepage() {
             <p className="text-white/40">Explore the amazing cities hosting the 2026 World Cup.</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {cities.map((city) => (
-              <Card 
-                key={city.code} 
-                className="overflow-hidden bg-[#122620] border-white/10 hover:border-yellow-600/50 transition-all cursor-pointer group"
-                onClick={() => {
-                  setSearchType('city');
-                  setSelectedCity(city.code);
-                  scrollToSection('hero');
-                }}
-              >
-                <div className="h-40 bg-gradient-to-br from-yellow-600/20 to-transparent flex items-center justify-center relative">
-                  <MapPin className="h-10 w-10 text-yellow-500/50 group-hover:scale-110 transition-transform" />
-                  <span className="absolute bottom-4 right-4 text-white/20 font-black text-4xl">{city.code}</span>
-                </div>
-                <div className="p-6 text-white">
-                  <h3 className="text-xl font-bold mb-1 group-hover:text-yellow-500 transition-colors">{city.name}</h3>
-                  <p className="text-white/40 text-sm mb-4">{city.country}</p>
-                  <div className="flex items-center justify-between text-xs text-yellow-500">
-                    <span>View Packages</span>
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            {uniqueCities.map((cityName) => {
+              const info = CITY_DATA[cityName] || { country: "Host Nation", code: cityName.substring(0, 3).toUpperCase() };
+              
+              return (
+                <Card 
+                  key={cityName} 
+                  className="overflow-hidden bg-[#122620] border-white/10 hover:border-yellow-600/50 transition-all cursor-pointer group"
+                  onClick={() => {
+                    setSearchType('city');
+                    setSelectedCity(cityName);
+                    scrollToSection('hero');
+                  }}
+                >
+                  <div className="h-40 bg-gradient-to-br from-yellow-600/20 to-transparent flex items-center justify-center relative">
+                    <MapPin className="h-10 w-10 text-yellow-500/50 group-hover:scale-110 transition-transform" />
+                    <span className="absolute bottom-4 right-4 text-white/20 font-black text-4xl">{info.code}</span>
                   </div>
-                </div>
-              </Card>
-            ))}
+                  <div className="p-6 text-white">
+                    <h3 className="text-xl font-bold mb-1 group-hover:text-yellow-500 transition-colors">{cityName}</h3>
+                    <p className="text-white/40 text-sm mb-4">{info.country}</p>
+                    <div className="flex items-center justify-between text-xs text-yellow-500">
+                      <span>View Packages</span>
+                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </section>
