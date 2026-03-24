@@ -35,7 +35,7 @@ func main() {
     }
 
 	//sync json match data
-	const gistURL = "https://gist.githubusercontent.com/ferns5/1b90d98ce188fbc68cebc3e731be7d9c/raw/ae643158c1b6090380894cca89b86653e557a843/matches.json"
+	const gistURL = "https://gist.githubusercontent.com/ferns5/1b90d98ce188fbc68cebc3e731be7d9c/raw/03be0d1e3ecab6f0cb7f14980f23559e12df9a6b/matches.json" 
 	go func() {
 		fmt.Println("Synchronizing match data...")
 		if err := services.SyncMatchesFromGist(db, gistURL); err != nil {
