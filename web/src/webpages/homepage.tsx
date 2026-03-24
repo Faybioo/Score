@@ -141,7 +141,7 @@ export default function Homepage() {
               <TabsContent value="team" className="space-y-4">
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Follow Your Country</Label>
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                  <SelectTrigger className="bg-black/20 border-white/10 h-12">
+                  <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
                     <SelectValue placeholder="Select a country..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1A3A2E] border-white/10 text-white max-h-60 overflow-y-auto">
@@ -155,7 +155,7 @@ export default function Homepage() {
               <TabsContent value="city" className="space-y-4">
                 <Label className="text-white/40 text-xs uppercase tracking-widest ml-1">Destination</Label>
                 <Select value={selectedCity} onValueChange={setSelectedCity}>
-                  <SelectTrigger className="bg-black/20 border-white/10 h-12">
+                  <SelectTrigger className="bg-[#1A3A2E]/30 border-white/10 h-12">
                     <SelectValue placeholder="Select host city..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1A3A2E] border-white/10 text-white max-h-60 overflow-y-auto">
