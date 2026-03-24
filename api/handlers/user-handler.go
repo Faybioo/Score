@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"net/http"
-	"encoding/json"
 	"database/sql"
+	"encoding/json"
+	"net/http"
 
 	"github.com/Faybioo/Score/models"
+	"github.com/auth0/go-jwt-middleware/v2/validator"
 )
 
 func SyncUser(db *sql.DB) http.HandlerFunc {
@@ -15,6 +16,10 @@ func SyncUser(db *sql.DB) http.HandlerFunc {
             http.Error(w, "Invalid request", http.StatusBadRequest)
             return
         }
+
+        if tokenClaims, ok := r.Context().Value("user").(*validator.ValidatedClaims); ok {
+			user.Auth0ID = tokenClaims.RegisteredClaims.Subject
+		}
 
         query := `
             INSERT INTO users (auth0_id, email)

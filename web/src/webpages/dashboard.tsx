@@ -2,9 +2,38 @@ import { useNavigate } from 'react-router';
 import { Trophy, Calendar, Plane, Search, LogOut } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import { useAuth0 } from '@auth0/auth0-react';
+import { useEffect } from 'react';
 
 export default function Dashboard() {
   const navigate=useNavigate();
+  const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
+
+  useEffect(() => {
+    const syncUser = async () => {
+      if (isAuthenticated && user) {
+        try {
+          const token = await getAccessTokenSilently();
+          // Inside SyncUser function in Dashboard.tsx
+          await fetch('http://localhost:8080/api/user/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              auth0_id: user.sub, 
+              email: user.email,
+            }),
+          });
+        } catch (err) {
+          console.error("Failed to sync user:", err);
+        }
+      }
+    };
+    syncUser();
+  }, [isAuthenticated, user, getAccessTokenSilently]);
+
   const stats=[{label: "Saved Trips", value: 0, icon: Calendar}, {label: "Total Destinations", value: 0, icon: Plane}, 
     {label: "Matches Planned", value: 0, icon: Trophy}
   ];
