@@ -62,10 +62,15 @@ export default function Homepage() {
     fetchMatches();
   }, []);
 
-  // Get teams from matches
+  // Get teams from matches filtering placeholders
   const uniqueTeams = Array.from(new Set(
     matches.flatMap(m => [m.home_team, m.away_team])
-  )).sort();
+  ))
+  .filter(team => {
+    const isPlaceholder = /^(Group|Match)/i.test(team);
+    return team && !isPlaceholder;
+  })
+  .sort();
 
   // Get cities from matches
   const uniqueCities = Array.from(new Set(
