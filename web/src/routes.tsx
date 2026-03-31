@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router';
 import Homepage from './webpages/homepage';
 import Login from './webpages/login';
 import Dashboard from './webpages/dashboard';
+import Admin from './webpages/admin';
 
 export const router = createBrowserRouter([
   {
@@ -16,4 +17,8 @@ export const router = createBrowserRouter([
     path: '/dashboard',
     Component: Dashboard,
   },
+  { 
+    path: '/admin', 
+    Component: Admin 
+  }
 ]);
