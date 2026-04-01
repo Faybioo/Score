@@ -3,6 +3,7 @@ import Homepage from './webpages/homepage';
 import Login from './webpages/login';
 import Dashboard from './webpages/dashboard';
 import Admin from './webpages/admin';
+import SearchPage from './webpages/serachpage';
 
 export const router = createBrowserRouter([
   {
@@ -20,5 +21,9 @@ export const router = createBrowserRouter([
   { 
     path: '/admin', 
     Component: Admin 
+  },
+  {
+    path: '/search',
+    Component: SearchPage,
   }
 ]);

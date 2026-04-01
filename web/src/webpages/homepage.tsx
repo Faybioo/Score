@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useNearestAirport } from '../hooks/useNearestAirport';
 
 interface Match {
   id: number;
@@ -20,69 +21,67 @@ interface Match {
 }
 
 const CITY_DATA: Record<string, { country: string; code: string }> = {
-  "Atlanta": { country: "USA", code: "ATL" },
-  "Boston": { country: "USA", code: "BOS" },
-  "Dallas": { country: "USA", code: "DFW" },
-  "Guadalajara": { country: "Mexico", code: "GDL" },
-  "Houston": { country: "USA", code: "IAH" },
-  "Kansas City": { country: "USA", code: "MCI" },
-  "Los Angeles": { country: "USA", code: "LAX" },
-  "Mexico City": { country: "Mexico", code: "MEX" },
-  "Miami": { country: "USA", code: "MIA" },
-  "Monterrey": { country: "Mexico", code: "MTY" },
-  "New York/New Jersey": { country: "USA", code: "NYC" },
-  "Philadelphia": { country: "USA", code: "PHL" },
-  "San Francisco": { country: "USA", code: "SFO" },
-  "Seattle": { country: "USA", code: "SEA" },
-  "Toronto": { country: "Canada", code: "YYZ" },
-  "Vancouver": { country: "Canada", code: "YVR" },
+  "Atlanta":             { country: "USA",    code: "ATL" },
+  "Boston":              { country: "USA",    code: "BOS" },
+  "Dallas":              { country: "USA",    code: "DFW" },
+  "Guadalajara":         { country: "Mexico", code: "GDL" },
+  "Houston":             { country: "USA",    code: "IAH" },
+  "Kansas City":         { country: "USA",    code: "MCI" },
+  "Los Angeles":         { country: "USA",    code: "LAX" },
+  "Mexico City":         { country: "Mexico", code: "MEX" },
+  "Miami":               { country: "USA",    code: "MIA" },
+  "Monterrey":           { country: "Mexico", code: "MTY" },
+  "New York/New Jersey": { country: "USA",    code: "NYC" },
+  "Philadelphia":        { country: "USA",    code: "PHL" },
+  "San Francisco":       { country: "USA",    code: "SFO" },
+  "Seattle":             { country: "USA",    code: "SEA" },
+  "Toronto":             { country: "Canada", code: "YYZ" },
+  "Vancouver":           { country: "Canada", code: "YVR" },
 };
 
 export default function Homepage() {
-  const { logout, isAuthenticated, loginWithRedirect, isLoading: authLoading } = useAuth0();  const navigate = useNavigate();
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { logout, isAuthenticated, isLoading: authLoading } = useAuth0();
+  const navigate = useNavigate();
+  const { originCode, isDetecting } = useNearestAirport();
 
-  const [searchType, setSearchType] = useState<'match' | 'team' | 'city'>('match');
+  const [matches,       setMatches]       = useState<Match[]>([]);
+  const [isLoading,     setIsLoading]     = useState(true);
+  const [searchType,    setSearchType]    = useState<'match' | 'team' | 'city'>('match');
   const [selectedMatch, setSelectedMatch] = useState('');
-  const [selectedTeam, setSelectedTeam] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedTeam,  setSelectedTeam]  = useState('');
+  const [selectedCity,  setSelectedCity]  = useState('');
 
   useEffect(() => {
-    const fetchMatches = async () => {
-      try {
-        const response = await fetch('http://localhost:8080/api/matches');
-        const data = await response.json();
-        setMatches(data || []);
-      } catch (error) {
-        console.error("Error fetching matches from backend:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchMatches();
+    fetch('http://localhost:8080/api/matches')
+      .then(r => r.json())
+      .then(data => setMatches(data || []))
+      .catch(e => console.error('Error fetching matches:', e))
+      .finally(() => setIsLoading(false));
   }, []);
 
-  // Get teams from matches filtering placeholders
   const uniqueTeams = Array.from(new Set(
     matches.flatMap(m => [m.home_team, m.away_team])
   ))
-  .filter(team => {
-    const isPlaceholder = /^(Group|Match)/i.test(team);
-    return team && !isPlaceholder;
-  })
+  .filter(team => team && !/^(Group|Match)/i.test(team))
   .sort();
 
-  // Get cities from matches
-  const uniqueCities = Array.from(new Set(
-    matches.map(m => m.host_city)
-  )).sort();
+  const uniqueCities = Array.from(new Set(matches.map(m => m.host_city))).sort();
+
+  // Build search URL always including origin
+  const buildSearchUrl = (type: string, q: string) =>
+    `/search?type=${type}&q=${encodeURIComponent(q)}&origin=${originCode}`;
 
   const handleSearch = () => {
-    const query = searchType === 'match' ? selectedMatch : (searchType === 'team' ? selectedTeam : selectedCity);
+    const query =
+      searchType === 'match' ? selectedMatch :
+      searchType === 'team'  ? selectedTeam  :
+      selectedCity;
     if (!query) return;
+    navigate(buildSearchUrl(searchType, query));
+  };
 
-    navigate(`/search?type=${searchType}&q=${encodeURIComponent(query)}`);
+  const handleCityClick = (cityName: string) => {
+    navigate(buildSearchUrl('city', cityName));
   };
 
   const scrollToSection = (id: string) => {
@@ -91,54 +90,52 @@ export default function Homepage() {
 
   return (
     <div className="min-h-screen bg-[#0A1612] text-white selection:bg-yellow-500/30 font-sans">
+
       {/* Header */}
       <header className="border-b border-white/10 bg-[#0A1612]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <Trophy className="h-8 w-8 text-yellow-500" />
             <span className="text-2xl font-bold tracking-tighter">Score!</span>
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
-            <button onClick={() => scrollToSection('hero')} className="hover:text-yellow-500 transition-colors">Home</button>
-            <button onClick={() => scrollToSection('matches')} className="hover:text-yellow-500 transition-colors">Matches</button>
+            <button onClick={() => scrollToSection('hero')}         className="hover:text-yellow-500 transition-colors">Home</button>
+            <button onClick={() => scrollToSection('matches')}      className="hover:text-yellow-500 transition-colors">Matches</button>
             <button onClick={() => scrollToSection('destinations')} className="hover:text-yellow-500 transition-colors">Destinations</button>
           </nav>
           <div className="flex items-center gap-4">
             {!authLoading && (
-              <>
-                {isAuthenticated ? (
-                  <>
-                    <button 
-                      onClick={() => navigate('/dashboard')} 
-                      className="text-sm font-medium text-white/60 hover:text-yellow-500 transition-colors mr-2"
-                    >
-                      Dashboard
-                    </button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-500"
-                      onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
-                    >
-                      Sign Out
-                    </Button>
-                  </>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    className="border-white/20 text-white hover:bg-white/10 hover:text-yellow-500" 
-                    onClick={() => navigate('/login')}
+              isAuthenticated ? (
+                <>
+                  <button
+                    onClick={() => navigate('/dashboard')}
+                    className="text-sm font-medium text-white/60 hover:text-yellow-500 transition-colors mr-2"
                   >
-                    Sign In
+                    Dashboard
+                  </button>
+                  <Button
+                    variant="outline"
+                    className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-500"
+                    onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+                  >
+                    Sign Out
                   </Button>
-                )}
-              </>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="border-white/20 text-white hover:bg-white/10 hover:text-yellow-500"
+                  onClick={() => navigate('/login')}
+                >
+                  Sign In
+                </Button>
+              )
             )}
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section id="hero" className="py-20 md:py-32 px-4 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-yellow-500/10 via-transparent to-transparent -z-10" />
         <div className="max-w-4xl mx-auto text-center">
@@ -148,6 +145,16 @@ export default function Homepage() {
           <p className="text-lg md:text-xl text-white/50 mb-12 max-w-2xl mx-auto">
             Book flights and hotels for the 2026 FIFA World Cup. Follow your team across North America.
           </p>
+
+          {/* Origin indicator */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className={`w-2 h-2 rounded-full ${isDetecting ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
+            <span className="text-xs text-white/35">
+              {isDetecting
+                ? 'Detecting your location…'
+                : `Searching flights from ${originCode}`}
+            </span>
+          </div>
 
           <div className="max-w-2xl mx-auto bg-[#122620] border border-white/10 p-6 md:p-8 rounded-3xl shadow-2xl backdrop-blur-sm text-left">
             <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'match' | 'team' | 'city')}>
@@ -202,7 +209,11 @@ export default function Homepage() {
               </TabsContent>
             </Tabs>
 
-            <Button onClick={handleSearch} className="w-full mt-8 bg-yellow-600 hover:bg-yellow-500 text-black font-bold h-14 text-lg rounded-xl shadow-lg shadow-yellow-600/20">
+            <Button
+              onClick={handleSearch}
+              disabled={isDetecting}
+              className="w-full mt-8 bg-yellow-600 hover:bg-yellow-500 text-black font-bold h-14 text-lg rounded-xl shadow-lg shadow-yellow-600/20 disabled:opacity-50"
+            >
               <Search className="mr-2 h-5 w-5" />
               Search Travel Packages
             </Button>
@@ -210,7 +221,7 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* Matches Section */}
+      {/* Featured Matches */}
       <section id="matches" className="py-24 bg-black/20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
@@ -219,7 +230,9 @@ export default function Homepage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-7xl mx-auto">
             {isLoading ? (
-               <div className="col-span-full flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-yellow-500" /></div>
+              <div className="col-span-full flex justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
+              </div>
             ) : matches.slice(0, 24).map((match) => (
               <Card key={match.id} className="bg-[#122620] border-white/10 p-4 hover:border-yellow-600/40 transition-all group flex flex-col justify-between">
                 <div>
@@ -239,7 +252,7 @@ export default function Homepage() {
                 <Button
                   size="sm"
                   className="mt-4 w-full bg-yellow-600 text-black font-bold hover:bg-yellow-500 text-xs h-8"
-                  onClick={() => { setSelectedMatch(match.id.toString()); setSearchType('match'); scrollToSection('hero'); }}
+                  onClick={() => navigate(buildSearchUrl('match', match.id.toString()))}
                 >
                   Book Now <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
@@ -249,7 +262,7 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* Host Cities / Destinations Section */}
+      {/* Host Cities */}
       <section id="destinations" className="py-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
@@ -259,16 +272,11 @@ export default function Homepage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {uniqueCities.map((cityName) => {
               const info = CITY_DATA[cityName] || { country: "Host Nation", code: cityName.substring(0, 3).toUpperCase() };
-              
               return (
-                <Card 
-                  key={cityName} 
+                <Card
+                  key={cityName}
                   className="overflow-hidden bg-[#122620] border-white/10 hover:border-yellow-600/50 transition-all cursor-pointer group"
-                  onClick={() => {
-                    setSearchType('city');
-                    setSelectedCity(cityName);
-                    scrollToSection('hero');
-                  }}
+                  onClick={() => handleCityClick(cityName)}
                 >
                   <div className="h-40 bg-gradient-to-br from-yellow-600/20 to-transparent flex items-center justify-center relative">
                     <MapPin className="h-10 w-10 text-yellow-500/50 group-hover:scale-110 transition-transform" />
@@ -289,15 +297,15 @@ export default function Homepage() {
         </div>
       </section>
 
-      {/* Why Book With Score (Features) */}
+      {/* Why Book With Score */}
       <section className="py-24 border-t border-white/5 bg-black/10">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-16 font-serif">Why Book with Score?</h2>
           <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto text-center">
             {[
-              { icon: Plane, title: "Best Flight Deals", desc: "Compare prices from top airlines and find the perfect flight to match day" },
-              { icon: MapPin, title: "Prime Locations", desc: "Hotels near stadiums and fan zones across all host cities" },
-              { icon: Trophy, title: "Follow Your Team", desc: "Track your favorite team's journey through the tournament" }
+              { icon: Plane,  title: "Best Flight Deals",  desc: "Compare prices from top airlines and find the perfect flight to match day" },
+              { icon: MapPin, title: "Prime Locations",    desc: "Hotels near stadiums and fan zones across all host cities" },
+              { icon: Trophy, title: "Follow Your Team",   desc: "Track your favorite team's journey through the tournament" },
             ].map((f, i) => (
               <div key={i} className="space-y-4 group">
                 <div className="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto text-yellow-500 group-hover:bg-yellow-500 group-hover:text-black transition-all">

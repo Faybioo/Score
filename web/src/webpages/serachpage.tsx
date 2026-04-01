@@ -1,0 +1,395 @@
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router';
+import {
+  Plane, MapPin, ArrowRight,
+  ArrowLeft, Trophy, AlertCircle, ChevronDown
+} from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { useAuth0 } from '@auth0/auth0-react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Match {
+  id: number;
+  kickoff: string;
+  host_city: string;
+  stadium: string;
+  home_team: string;
+  away_team: string;
+  status: string;
+}
+
+interface Segment {
+  departing_at: string;
+  arriving_at: string;
+  origin: { iata_code: string; name: string };
+  destination: { iata_code: string; name: string };
+  marketing_carrier: { name: string; iata_code: string };
+  aircraft?: { name: string };
+}
+
+interface Slice {
+  origin: { iata_code: string; name: string };
+  destination: { iata_code: string; name: string };
+  duration: string;
+  segments: Segment[];
+}
+
+interface Offer {
+  id: string;
+  total_amount: string;
+  total_currency: string;
+  slices: Slice[];
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const CITY_AIRPORT: Record<string, string> = {
+  "Atlanta":             "ATL",
+  "Boston":              "BOS",
+  "Dallas":              "DFW",
+  "Guadalajara":         "GDL",
+  "Houston":             "IAH",
+  "Kansas City":         "MCI",
+  "Los Angeles":         "LAX",
+  "Mexico City":         "MEX",
+  "Miami":               "MIA",
+  "Monterrey":           "MTY",
+  "New York/New Jersey": "EWR",
+  "Philadelphia":        "PHL",
+  "San Francisco":       "SFO",
+  "Seattle":             "SEA",
+  "Toronto":             "YYZ",
+  "Vancouver":           "YVR",
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDuration(iso: string): string {
+  const h = iso.match(/(\d+)H/)?.[1];
+  const m = iso.match(/(\d+)M/)?.[1];
+  return [h && `${h}h`, m && `${m}m`].filter(Boolean).join(' ') || iso;
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function kickoffToDate(kickoff: string): string {
+  return new Date(kickoff).toISOString().split('T')[0];
+}
+
+function kickoffDisplay(kickoff: string): string {
+  return new Date(kickoff).toLocaleDateString('en-US', {
+    month: 'numeric', day: 'numeric', year: 'numeric',
+  });
+}
+
+function kickoffTime(kickoff: string): string {
+  return new Date(kickoff).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div className="bg-[#111f17] border border-white/5 rounded-2xl overflow-hidden animate-pulse">
+      <div className="px-5 pt-4 pb-3 border-b border-white/5 flex justify-between">
+        <div className="space-y-2">
+          <div className="h-2.5 w-20 bg-white/5 rounded" />
+          <div className="h-4 w-44 bg-white/8 rounded" />
+          <div className="h-2.5 w-32 bg-white/5 rounded" />
+        </div>
+        <div className="space-y-1 text-right">
+          <div className="h-4 w-20 bg-white/8 rounded ml-auto" />
+          <div className="h-2.5 w-10 bg-white/5 rounded ml-auto" />
+        </div>
+      </div>
+      <div className="px-5 py-5">
+        <div className="h-2.5 w-24 bg-white/5 rounded mb-4" />
+        <div className="flex items-center gap-4">
+          <div className="h-8 w-12 bg-white/8 rounded" />
+          <div className="flex-1 h-px bg-white/5" />
+          <div className="h-8 w-12 bg-white/8 rounded" />
+        </div>
+        <div className="h-2.5 w-28 bg-white/5 rounded mt-3" />
+      </div>
+      <div className="px-5 pb-5 flex justify-between items-end">
+        <div className="space-y-1">
+          <div className="h-2.5 w-24 bg-white/5 rounded" />
+          <div className="h-8 w-16 bg-white/8 rounded" />
+          <div className="h-2.5 w-20 bg-white/5 rounded" />
+        </div>
+        <div className="h-9 w-32 bg-white/5 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+// ─── Flight Card ──────────────────────────────────────────────────────────────
+
+function FlightCard({ offer, match }: { offer: Offer; match: Match }) {
+  const [expanded, setExpanded] = useState(false);
+  const slice    = offer.slices[0];
+  const firstSeg = slice.segments[0];
+  const lastSeg  = slice.segments[slice.segments.length - 1];
+  const stops    = slice.segments.length - 1;
+
+  return (
+    <div className="bg-[#111f17] border border-white/8 rounded-2xl overflow-hidden hover:border-yellow-600/25 transition-colors">
+
+      {/* Match header */}
+      <div className="px-5 pt-4 pb-3 border-b border-white/5 flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Trophy className="h-3 w-3 text-yellow-500" />
+            <span className="text-[9px] text-yellow-500 uppercase tracking-widest font-semibold">
+              {match.status}
+            </span>
+          </div>
+          <p className="text-sm font-bold text-white leading-tight">
+            {match.home_team} vs {match.away_team}
+          </p>
+          <p className="text-[11px] text-white/35 mt-1 flex items-center gap-1">
+            <MapPin className="h-3 w-3 shrink-0" />
+            {match.stadium}, {match.host_city}
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-sm font-bold text-white">{kickoffDisplay(match.kickoff)}</p>
+          <p className="text-[11px] text-white/35 mt-0.5">{kickoffTime(match.kickoff)}</p>
+        </div>
+      </div>
+
+      {/* Flight row */}
+      <div className="px-5 py-4">
+        <div className="flex items-center gap-1.5 mb-3">
+          <Plane className="h-3 w-3 text-yellow-500" />
+          <span className="text-[9px] text-white/35 uppercase tracking-widest">Flight Details</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="w-16">
+            <p className="text-2xl font-black text-white font-mono leading-none tracking-tight">
+              {firstSeg.origin.iata_code}
+            </p>
+            <p className="text-[11px] text-white/35 mt-0.5">{formatTime(firstSeg.departing_at)}</p>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center gap-1">
+            <p className="text-[9px] text-white/25">{formatDuration(slice.duration)}</p>
+            <div className="w-full flex items-center gap-1">
+              <div className="h-px flex-1 bg-white/10" />
+              <ArrowRight className="h-3 w-3 text-white/20 shrink-0" />
+            </div>
+            <Badge className={`text-[9px] border-none px-2 py-0 leading-4 ${
+              stops === 0 ? 'bg-green-500/10 text-green-400' : 'bg-orange-500/10 text-orange-400'
+            }`}>
+              {stops === 0 ? 'Non-stop' : `${stops} stop${stops > 1 ? 's' : ''}`}
+            </Badge>
+          </div>
+
+          <div className="w-16 text-right">
+            <p className="text-2xl font-black text-white font-mono leading-none tracking-tight">
+              {lastSeg.destination.iata_code}
+            </p>
+            <p className="text-[11px] text-white/35 mt-0.5">{formatTime(lastSeg.arriving_at)}</p>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-white/25 mt-2">{firstSeg.marketing_carrier.name}</p>
+      </div>
+
+      {/* Price + CTA */}
+      <div className="px-5 pb-4 flex items-end justify-between">
+        <div>
+          <p className="text-[9px] text-white/25 uppercase tracking-widest mb-0.5">Total Package Price</p>
+          <p className="text-3xl font-black text-white leading-none">
+            ${parseFloat(offer.total_amount).toFixed(0)}
+          </p>
+          <p className="text-[9px] text-white/20 mt-1">includes flight</p>
+        </div>
+        <Button className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-xl px-5 h-9 text-sm shadow-lg shadow-yellow-900/20">
+          Save Itinerary
+        </Button>
+      </div>
+
+      {/* Expand toggle */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-center gap-1 py-2.5 text-[10px] text-white/20 hover:text-white/45 border-t border-white/5 transition-colors"
+      >
+        Flight details
+        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="px-5 pb-5 pt-3 space-y-3 border-t border-white/5">
+          {slice.segments.map((seg, i) => (
+            <div key={i} className="flex gap-4 text-xs text-white/40">
+              <span className="w-10 font-mono text-white/25 shrink-0 pt-0.5">{seg.marketing_carrier.iata_code}</span>
+              <div>
+                <p>
+                  <span className="text-white/80 font-semibold">{seg.origin.iata_code}</span>
+                  {' '}{formatTime(seg.departing_at)}
+                  {' → '}
+                  <span className="text-white/80 font-semibold">{seg.destination.iata_code}</span>
+                  {' '}{formatTime(seg.arriving_at)}
+                </p>
+                <p className="text-white/20 mt-0.5">{seg.origin.name} → {seg.destination.name}</p>
+                {seg.aircraft && <p className="text-white/15 mt-0.5">{seg.aircraft.name}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function SearchPage() {
+  const [searchParams]      = useSearchParams();
+  const navigate            = useNavigate();
+  const { isAuthenticated } = useAuth0();
+
+  const searchType = searchParams.get('type') as 'match' | 'team' | 'city' | null;
+  const query      = searchParams.get('q') || '';
+  // Read origin passed from homepage — fall back to JFK if missing
+  const origin     = searchParams.get('origin') || 'JFK';
+
+  const [allMatches,       setAllMatches]       = useState<Match[]>([]);
+  const [relevantMatches,  setRelevantMatches]  = useState<Match[]>([]);
+  const [offers,           setOffers]           = useState<Offer[]>([]);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(true);
+  const [isLoadingFlights, setIsLoadingFlights] = useState(false);
+  const [error,            setError]            = useState('');
+
+  useEffect(() => {
+    fetch('http://localhost:8080/api/matches')
+      .then(r => r.json())
+      .then((data: Match[]) => setAllMatches(data || []))
+      .catch(() => setError('Could not load match data.'))
+      .finally(() => setIsLoadingMatches(false));
+  }, []);
+
+  useEffect(() => {
+    if (!allMatches.length) return;
+    let filtered: Match[] = [];
+    if      (searchType === 'match') filtered = allMatches.filter(m => m.id.toString() === query);
+    else if (searchType === 'team')  filtered = allMatches.filter(m => m.home_team === query || m.away_team === query);
+    else if (searchType === 'city')  filtered = allMatches.filter(m => m.host_city === query);
+    setRelevantMatches(filtered);
+  }, [allMatches, searchType, query]);
+
+  useEffect(() => {
+    if (!relevantMatches.length) return;
+    const match    = relevantMatches[0];
+    const destCode = CITY_AIRPORT[match.host_city];
+    if (!destCode) { setError(`No airport code found for "${match.host_city}"`); return; }
+
+    setIsLoadingFlights(true);
+    setError('');
+
+    fetch('http://localhost:8080/api/flights/search', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        origin,
+        destination:    destCode,
+        departure_date: kickoffToDate(match.kickoff),
+      }),
+    })
+      .then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); })
+      .then(data => {
+        const raw = data?.data?.offers ?? data?.offers ?? data ?? [];
+        setOffers(Array.isArray(raw) ? raw : []);
+      })
+      .catch(e => setError(e.message || 'Flight search failed.'))
+      .finally(() => setIsLoadingFlights(false));
+  }, [relevantMatches, origin]);
+
+  const isLoading    = isLoadingMatches || isLoadingFlights;
+  const primaryMatch = relevantMatches[0];
+  const destCity     = primaryMatch?.host_city ?? query;
+  const destCode     = CITY_AIRPORT[destCity] ?? '???';
+
+  return (
+    <div className="min-h-screen bg-[#0A1612] text-white font-sans">
+
+      {/* Header */}
+      <header className="border-b border-white/8 bg-[#0A1612]/90 backdrop-blur-md sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-white/40 hover:text-white transition-colors text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+            <Trophy className="h-6 w-6 text-yellow-500" />
+            <span className="text-xl font-bold tracking-tighter">Score!</span>
+          </div>
+          <button
+            onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')}
+            className="text-sm font-medium text-white/40 hover:text-yellow-500 transition-colors"
+          >
+            My Trips
+          </button>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-10 max-w-3xl">
+
+        {/* Title */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold font-serif mb-1">Available Travel Packages</h1>
+          <p className="text-white/30 text-sm">Showing results</p>
+          {!isLoading && destCode !== '???' && (
+            <p className="text-white/20 text-xs mt-1 flex items-center gap-1.5">
+              <Plane className="h-3 w-3" />
+              {origin} → {destCode} · {destCity}
+            </p>
+          )}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 mb-6 text-sm">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {/* Count */}
+        {!isLoading && !error && (
+          <p className="text-xs text-white/25 mb-5">
+            {offers.length} package{offers.length !== 1 ? 's' : ''} found
+          </p>
+        )}
+
+        {/* Cards */}
+        {isLoading ? (
+          <div className="space-y-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        ) : offers.length === 0 && !error ? (
+          <div className="text-center py-24 text-white/15">
+            <Plane className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <p className="text-sm">No flights found for this route.</p>
+          </div>
+        ) : primaryMatch ? (
+          <div className="space-y-4">
+            {offers.map(offer => (
+              <FlightCard key={offer.id} offer={offer} match={primaryMatch} />
+            ))}
+          </div>
+        ) : null}
+      </main>
+    </div>
+  );
+}
