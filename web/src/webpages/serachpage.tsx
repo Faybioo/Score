@@ -129,7 +129,7 @@ function SkeletonCard() {
 
 // ─── Flight Card ──────────────────────────────────────────────────────────────
 
-function FlightCard({ offer, match }: { offer: Offer; match: Match }) {
+function FlightCard({ offer, match, onSave }: { offer: Offer; match: Match, onSave: (offer: Offer) => void }) {
   const [expanded, setExpanded] = useState(false);
   const slice    = offer.slices[0];
   const firstSeg = slice.segments[0];
@@ -210,7 +210,9 @@ function FlightCard({ offer, match }: { offer: Offer; match: Match }) {
           </p>
           <p className="text-[9px] text-white/20 mt-1">includes flight</p>
         </div>
-        <Button className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-xl px-5 h-9 text-sm shadow-lg shadow-yellow-900/20">
+        <Button 
+          onClick={() => onSave(offer)}
+          className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-xl px-5 h-9 text-sm shadow-lg shadow-yellow-900/20">
           Save Itinerary
         </Button>
       </div>
@@ -251,9 +253,10 @@ function FlightCard({ offer, match }: { offer: Offer; match: Match }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  
   const [searchParams]      = useSearchParams();
   const navigate            = useNavigate();
-  const { isAuthenticated } = useAuth0();
 
   const searchType = searchParams.get('type') as 'match' | 'team' | 'city' | null;
   const query      = searchParams.get('q') || '';
@@ -262,10 +265,43 @@ export default function SearchPage() {
 
   const [allMatches,       setAllMatches]       = useState<Match[]>([]);
   const [relevantMatches,  setRelevantMatches]  = useState<Match[]>([]);
+  const [activeMatch, setActiveMatch] = useState<Match | null>(null);
   const [offers,           setOffers]           = useState<Offer[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingFlights, setIsLoadingFlights] = useState(false);
   const [error,            setError]            = useState('');
+
+  const handleSaveTrip = async (offer: Offer) => {
+    if (!isAuthenticated) {
+      alert("Please log in to save trips!");
+      return;
+    }
+
+    try {
+      const token = await getAccessTokenSilently();
+      const response = await fetch('http://localhost:8080/api/trips/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          match_id: activeMatch?.id,
+          offer_id: offer.id,
+          price: offer.total_amount,
+          origin: offer.slices[0].origin.iata_code,
+          destination: offer.slices[0].destination.iata_code,
+          departure_date: offer.slices[0].segments[0].departing_at
+        }),
+      });
+
+      if (response.ok) {
+        alert("Trip saved successfully!");
+      }
+    } catch (err) {
+      console.error("Save failed:", err);
+    }
+  };
 
   useEffect(() => {
     fetch('http://localhost:8080/api/matches')
@@ -282,26 +318,29 @@ export default function SearchPage() {
     else if (searchType === 'team')  filtered = allMatches.filter(m => m.home_team === query || m.away_team === query);
     else if (searchType === 'city')  filtered = allMatches.filter(m => m.host_city === query);
     setRelevantMatches(filtered);
+
+    if (filtered.length === 1) {
+      setActiveMatch(filtered[0]);
+    }
   }, [allMatches, searchType, query]);
 
   useEffect(() => {
-    if (!relevantMatches.length) return;
-    const match    = relevantMatches[0];
-    const destCode = CITY_AIRPORT[match.host_city];
-    if (!destCode) { setError(`No airport code found for "${match.host_city}"`); return; }
+    if (!activeMatch) return;
+  const destCode = CITY_AIRPORT[activeMatch.host_city];
+  if (!destCode) { setError(`No airport code found for "${activeMatch.host_city}"`); return; }
 
-    setIsLoadingFlights(true);
-    setError('');
+  setIsLoadingFlights(true);
+  setError('');
 
-    fetch('http://localhost:8080/api/flights/search', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        origin,
-        destination:    destCode,
-        departure_date: kickoffToDate(match.kickoff),
-      }),
-    })
+  fetch('http://localhost:8080/api/flights/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      origin,
+      destination: destCode,
+      departure_date: kickoffToDate(activeMatch.kickoff),
+    }),
+  })
       .then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); })
       .then(data => {
         const raw = data?.data?.offers ?? data?.offers ?? data ?? [];
@@ -309,12 +348,10 @@ export default function SearchPage() {
       })
       .catch(e => setError(e.message || 'Flight search failed.'))
       .finally(() => setIsLoadingFlights(false));
-  }, [relevantMatches, origin]);
+  }, [activeMatch, origin]);
 
   const isLoading    = isLoadingMatches || isLoadingFlights;
   const primaryMatch = relevantMatches[0];
-  const destCity     = primaryMatch?.host_city ?? query;
-  const destCode     = CITY_AIRPORT[destCity] ?? '???';
 
   return (
     <div className="min-h-screen bg-[#0A1612] text-white font-sans">
@@ -345,15 +382,52 @@ export default function SearchPage() {
 
         {/* Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold font-serif mb-1">Available Travel Packages</h1>
-          <p className="text-white/30 text-sm">Showing results</p>
-          {!isLoading && destCode !== '???' && (
-            <p className="text-white/20 text-xs mt-1 flex items-center gap-1.5">
-              <Plane className="h-3 w-3" />
-              {origin} → {destCode} · {destCity}
-            </p>
-          )}
+          <h1 className="text-3xl font-bold font-serif mb-1">
+            {searchType === 'team' ? `Follow ${query}` : 
+            searchType === 'city' ? `Matches in ${query}` : 
+            'Travel Packages'}
+          </h1>
+          <p className="text-white/30 text-sm">
+            {activeMatch ? `Showing flights for ${activeMatch.home_team} vs ${activeMatch.away_team}` : 'Select a match to see flights'}
+          </p>
         </div>
+
+        {relevantMatches.length > 1 && (
+          <div className="mb-8 overflow-x-auto pb-4 flex gap-3 
+            scrollbar-thin 
+            scrollbar-thumb-yellow-600/20 
+            scrollbar-track-white/5 
+            hover:scrollbar-thumb-yellow-600/40
+            [&::-webkit-scrollbar]:h-1.5
+            [&::-webkit-scrollbar-track]:bg-white/5
+            [&::-webkit-scrollbar-track]:rounded-full
+            [&::-webkit-scrollbar-thumb]:bg-yellow-600/80
+            [&::-webkit-scrollbar-thumb]:rounded-full
+            hover:[&::-webkit-scrollbar-thumb]:bg-yellow-600/40">
+            {relevantMatches
+          .filter(m => {
+            const isPlaceholder = /^(Group|Match)/i.test(m.home_team) || /^(Group|Match)/i.test(m.away_team);
+            return !isPlaceholder;
+          })
+            .map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setActiveMatch(m)}
+                className={`shrink-0 p-4 rounded-xl border transition-all text-left min-w-[200px] ${
+                  activeMatch?.id === m.id 
+                    ? 'bg-yellow-600/10 border-yellow-600/50' 
+                    : 'bg-white/5 border-white/5 hover:border-white/10'
+                }`}
+              >
+                <p className="text-[10px] text-yellow-500 font-bold uppercase mb-1">
+                  {new Date(m.kickoff).toLocaleDateString()}
+                </p>
+                <p className="text-sm font-bold truncate">{m.home_team} vs {m.away_team}</p>
+                <p className="text-[11px] text-white/30">{m.host_city}</p>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -385,7 +459,7 @@ export default function SearchPage() {
         ) : primaryMatch ? (
           <div className="space-y-4">
             {offers.map(offer => (
-              <FlightCard key={offer.id} offer={offer} match={primaryMatch} />
+              <FlightCard key={offer.id} offer={offer} match={primaryMatch} onSave={handleSaveTrip} />
             ))}
           </div>
         ) : null}
