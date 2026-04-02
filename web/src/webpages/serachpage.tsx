@@ -456,7 +456,7 @@ export default function SearchPage() {
             <Plane className="h-12 w-12 mx-auto mb-4 opacity-20" />
             <p className="text-sm">No flights found for this route.</p>
           </div>
-        ) : primaryMatch ? (
+        ) : activeMatch ? (
           <div className="space-y-4">
             {offers.map(offer => (
               <FlightCard key={offer.id} offer={offer} match={activeMatch} onSave={handleSaveTrip} />
