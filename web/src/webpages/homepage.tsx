@@ -233,7 +233,7 @@ export default function Homepage() {
               <div className="col-span-full flex justify-center p-12">
                 <Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
               </div>
-            ) : matches.slice(0, 24).map((match) => (
+            ) : matches.slice(0, 72).map((match) => (
               <Card key={match.id} className="bg-[#122620] border-white/10 p-4 hover:border-yellow-600/40 transition-all group flex flex-col justify-between">
                 <div>
                   <Badge className="bg-yellow-600/20 text-yellow-500 border-none mb-3 uppercase text-[9px] tracking-tighter">
