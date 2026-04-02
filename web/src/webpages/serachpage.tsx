@@ -459,7 +459,7 @@ export default function SearchPage() {
         ) : primaryMatch ? (
           <div className="space-y-4">
             {offers.map(offer => (
-              <FlightCard key={offer.id} offer={offer} match={primaryMatch} onSave={handleSaveTrip} />
+              <FlightCard key={offer.id} offer={offer} match={activeMatch} onSave={handleSaveTrip} />
             ))}
           </div>
         ) : null}
