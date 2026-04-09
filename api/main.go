@@ -104,6 +104,9 @@ func main() {
 		r.Get("/api/user/profile", handlers.GetProfile(db))
     //r.Post("/api/user/saved-matches", handlers.SaveMatch)
 
+		r.Post("/api/trips/save", handlers.SaveTrip(db))
+		r.Get("/api/trips", handlers.GetTrips(db))
+
 		// admin endpoints for matches table
 		r.Put("/api/matches/{id}", handlers.UpdateMatch(db))
 		r.Delete("/api/matches/{id}", handlers.DeleteMatch(db))

@@ -64,6 +64,25 @@ func Migrate(db *sql.DB) error {
 		return fmt.Errorf("could not create user table: %w", err)
 	}
 
-    log.Println("Database migration completed (table ensured)")
+	query = `
+	CREATE TABLE IF NOT EXISTS trips (
+		id SERIAL PRIMARY KEY,
+		auth0_id VARCHAR(255) NOT NULL REFERENCES users(auth0_id),
+		match_id INTEGER NOT NULL REFERENCES matches(id),
+		flight_offer_id VARCHAR(255) NOT NULL,
+		origin VARCHAR(100) NOT NULL,
+		destination VARCHAR(100) NOT NULL,
+		departure_date TIMESTAMP WITH TIME ZONE NOT NULL,
+		return_date TIMESTAMP WITH TIME ZONE,
+		cabin_class VARCHAR(50),
+		total_amount DECIMAL(10, 2) NOT NULL,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);`
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("could not create trips table: %w", err)
+	}
+
+    log.Println("Database migrated")
     return nil
 }
