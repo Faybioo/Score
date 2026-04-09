@@ -103,6 +103,10 @@ func main() {
 		r.Post("/api/user/sync", handlers.SyncUser(db))
 		r.Get("/api/user/profile", handlers.GetProfile(db))
     //r.Post("/api/user/saved-matches", handlers.SaveMatch)
+
+		// admin endpoints for matches table
+		r.Put("/api/matches/{id}", handlers.UpdateMatch(db))
+		r.Delete("/api/matches/{id}", handlers.DeleteMatch(db))
 	})
 
 	fmt.Printf("API listening on :8080...")
