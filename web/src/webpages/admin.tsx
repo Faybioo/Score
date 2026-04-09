@@ -27,6 +27,7 @@ export default function Admin() {
   const { user, isAuthenticated, isLoading, getAccessTokenSilently } = useAuth0();
   const [matches, setMatches] = useState<Match[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
 
   // Security Gate
   useEffect(() => {
@@ -59,8 +60,66 @@ export default function Admin() {
 
   const handleDeleteMatch = async (id: number) => {
     if (!window.confirm("Are you sure you want to remove this match?")) return;
-    // Implementation for DELETE /api/matches/:id
-    console.log("Deleting match:", id);
+    try {
+      const token = await getAccessTokenSilently();
+      const response = await fetch(`http://localhost:8080/api/matches/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        setMatches(matches.filter(m => m.id !== id));
+      } else {
+        const error = await response.text();
+        console.error("Failed to delete match:", error);
+        alert("Failed to delete match");
+      }
+    } catch (err) {
+      console.error("Error deleting match:", err);
+      alert("Error deleting match");
+    }
+  };
+
+  const handleEditMatch = (match: Match) => {
+    setEditingMatch({ ...match });
+  };
+
+  const handleSaveMatch = async () => {
+    if (!editingMatch) return;
+    try {
+      const token = await getAccessTokenSilently();
+      const response = await fetch(`http://localhost:8080/api/matches/${editingMatch.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          home_team: editingMatch.home_team,
+          away_team: editingMatch.away_team,
+          host_city: editingMatch.host_city,
+          stadium: editingMatch.stadium,
+          kickoff: editingMatch.kickoff,
+          status: editingMatch.status
+        })
+      });
+      
+      if (response.ok) {
+        const updatedMatch = await response.json();
+        setMatches(matches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+        setEditingMatch(null);
+      } else {
+        const error = await response.text();
+        console.error("Failed to update match:", error);
+        alert("Failed to update match");
+      }
+    } catch (err) {
+      console.error("Error updating match:", err);
+      alert("Error updating match");
+    }
   };
 
   if (isLoading || isDataLoading) {
@@ -126,7 +185,12 @@ export default function Admin() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="ghost" className="hover:text-yellow-500">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="hover:text-yellow-500"
+                          onClick={() => handleEditMatch(match)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button 
