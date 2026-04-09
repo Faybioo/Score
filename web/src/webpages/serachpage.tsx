@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
 import {
   Plane, MapPin, ArrowRight,
@@ -250,6 +250,60 @@ function FlightCard({ offer, match, onSave }: { offer: Offer; match: Match, onSa
   );
 }
 
+// ─── Sort Dropdown ────────────────────────────────────────────────────────────
+
+type SortOrder = 'asc' | 'desc';
+
+function SortDropdown({ sortOrder, setSortOrder }: { sortOrder: SortOrder; setSortOrder: (s: SortOrder) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const options: { label: string; value: SortOrder }[] = [
+    { label: 'Price: Low to High', value: 'asc' },
+    { label: 'Price: High to Low', value: 'desc' },
+  ];
+
+  const current = options.find(o => o.value === sortOrder)!;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 transition-colors"
+      >
+        {current.label}
+        <ChevronDown className={`h-3 w-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-1.5 w-44 bg-[#111f17] border border-white/10 rounded-xl overflow-hidden shadow-xl z-10">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { setSortOrder(opt.value); setOpen(false); }}
+              className={`w-full text-left px-4 py-2.5 text-xs transition-colors ${
+                sortOrder === opt.value
+                  ? 'text-yellow-500 bg-yellow-600/10'
+                  : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
@@ -260,16 +314,21 @@ export default function SearchPage() {
 
   const searchType = searchParams.get('type') as 'match' | 'team' | 'city' | null;
   const query      = searchParams.get('q') || '';
-  // Read origin passed from homepage — fall back to JFK if missing
   const origin     = searchParams.get('origin') || 'JFK';
 
   const [allMatches,       setAllMatches]       = useState<Match[]>([]);
   const [relevantMatches,  setRelevantMatches]  = useState<Match[]>([]);
-  const [activeMatch, setActiveMatch] = useState<Match | null>(null);
+  const [activeMatch,      setActiveMatch]      = useState<Match | null>(null);
   const [offers,           setOffers]           = useState<Offer[]>([]);
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingFlights, setIsLoadingFlights] = useState(false);
   const [error,            setError]            = useState('');
+  const [sortOrder,        setSortOrder]        = useState<SortOrder>('asc');
+
+  const sortedOffers = [...offers].sort((a, b) => {
+    const diff = parseFloat(a.total_amount) - parseFloat(b.total_amount);
+    return sortOrder === 'asc' ? diff : -diff;
+  });
 
   const handleSaveTrip = async (offer: Offer) => {
     if (!isAuthenticated) {
@@ -326,21 +385,21 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (!activeMatch) return;
-  const destCode = CITY_AIRPORT[activeMatch.host_city];
-  if (!destCode) { setError(`No airport code found for "${activeMatch.host_city}"`); return; }
+    const destCode = CITY_AIRPORT[activeMatch.host_city];
+    if (!destCode) { setError(`No airport code found for "${activeMatch.host_city}"`); return; }
 
-  setIsLoadingFlights(true);
-  setError('');
+    setIsLoadingFlights(true);
+    setError('');
 
-  fetch('http://localhost:8080/api/flights/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      origin,
-      destination: destCode,
-      departure_date: kickoffToDate(activeMatch.kickoff),
-    }),
-  })
+    fetch('http://localhost:8080/api/flights/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        origin,
+        destination: destCode,
+        departure_date: kickoffToDate(activeMatch.kickoff),
+      }),
+    })
       .then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); })
       .then(data => {
         const raw = data?.data?.offers ?? data?.offers ?? data ?? [];
@@ -405,27 +464,27 @@ export default function SearchPage() {
             [&::-webkit-scrollbar-thumb]:rounded-full
             hover:[&::-webkit-scrollbar-thumb]:bg-yellow-600/40">
             {relevantMatches
-          .filter(m => {
-            const isPlaceholder = /^(Group|Match)/i.test(m.home_team) || /^(Group|Match)/i.test(m.away_team);
-            return !isPlaceholder;
-          })
-            .map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setActiveMatch(m)}
-                className={`shrink-0 p-4 rounded-xl border transition-all text-left min-w-[200px] ${
-                  activeMatch?.id === m.id 
-                    ? 'bg-yellow-600/10 border-yellow-600/50' 
-                    : 'bg-white/5 border-white/5 hover:border-white/10'
-                }`}
-              >
-                <p className="text-[10px] text-yellow-500 font-bold uppercase mb-1">
-                  {new Date(m.kickoff).toLocaleDateString()}
-                </p>
-                <p className="text-sm font-bold truncate">{m.home_team} vs {m.away_team}</p>
-                <p className="text-[11px] text-white/30">{m.host_city}</p>
-              </button>
-            ))}
+              .filter(m => {
+                const isPlaceholder = /^(Group|Match)/i.test(m.home_team) || /^(Group|Match)/i.test(m.away_team);
+                return !isPlaceholder;
+              })
+              .map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setActiveMatch(m)}
+                  className={`shrink-0 p-4 rounded-xl border transition-all text-left min-w-[200px] ${
+                    activeMatch?.id === m.id 
+                      ? 'bg-yellow-600/10 border-yellow-600/50' 
+                      : 'bg-white/5 border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <p className="text-[10px] text-yellow-500 font-bold uppercase mb-1">
+                    {new Date(m.kickoff).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm font-bold truncate">{m.home_team} vs {m.away_team}</p>
+                  <p className="text-[11px] text-white/30">{m.host_city}</p>
+                </button>
+              ))}
           </div>
         )}
 
@@ -437,11 +496,16 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* Count */}
+        {/* Count + Sort */}
         {!isLoading && !error && (
-          <p className="text-xs text-white/25 mb-5">
-            {offers.length} package{offers.length !== 1 ? 's' : ''} found
-          </p>
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-xs text-white/25">
+              {offers.length} package{offers.length !== 1 ? 's' : ''} found
+            </p>
+            {offers.length > 1 && (
+              <SortDropdown sortOrder={sortOrder} setSortOrder={setSortOrder} />
+            )}
+          </div>
         )}
 
         {/* Cards */}
@@ -458,7 +522,7 @@ export default function SearchPage() {
           </div>
         ) : primaryMatch ? (
           <div className="space-y-4">
-            {offers.map(offer => (
+            {sortedOffers.map(offer => (
               <FlightCard key={offer.id} offer={offer} match={activeMatch} onSave={handleSaveTrip} />
             ))}
           </div>
