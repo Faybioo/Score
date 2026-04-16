@@ -112,6 +112,8 @@ func main() {
 		// admin endpoints for matches table
 		r.Put("/api/matches/{id}", handlers.UpdateMatch(db))
 		r.Delete("/api/matches/{id}", handlers.DeleteMatch(db))
+
+		r.Get("/api/admin/user-count", handlers.GetUserCount(db))
 	})
 
 	fmt.Printf("API listening on :8080...")

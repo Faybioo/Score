@@ -28,6 +28,7 @@ export default function Admin() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+  const [userCount, setUserCount] = useState<number | string>('--');
 
   // Security Gate
   useEffect(() => {
@@ -41,6 +42,23 @@ export default function Admin() {
       if (!isAdmin) navigate('/dashboard');
     }
   }, [isLoading, isAuthenticated, user, navigate]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = await getAccessTokenSilently();
+        const response = await fetch('http://localhost:8080/api/admin/user-count', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        setUserCount(data.count);
+      } catch (err) {
+        console.error("Failed to fetch user count:", err);
+      }
+    };
+    
+    if (isAuthenticated) fetchStats();
+  }, [getAccessTokenSilently, isAuthenticated]);
 
   // Fetch Matches for Management
   useEffect(() => {
@@ -151,8 +169,8 @@ export default function Admin() {
       <main className="container mx-auto p-8">
         {/* Global System Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <StatCard label="Total Matches" value={matches.length} icon={Trophy} />
-          <StatCard label="Active Users" value="--" icon={Users} />
+          <StatCard label="Total Matches" value={matches?.length || 0} icon={Trophy} />
+          <StatCard label="Registered Users" value={userCount} icon={Users} />
           <StatCard label="API Status" value="Healthy" icon={Activity} />
         </div>
 
