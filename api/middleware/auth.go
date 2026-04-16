@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -37,9 +38,10 @@ func EnsureValidToken(next http.Handler) http.Handler {
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		claims, err := jwtValidator.ValidateToken(r.Context(), tokenString)
 		if err != nil {
+			log.Printf("Encountered error while validating JWT: %v", err)
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
+    return
+}
 
 		ctx := context.WithValue(r.Context(), "user", claims.(*validator.ValidatedClaims))
 		next.ServeHTTP(w, r.WithContext(ctx))

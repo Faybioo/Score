@@ -23,9 +23,14 @@ func SearchFlights(w http.ResponseWriter, r *http.Request) {
 
 	result, err := duffel.SearchFlights(req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
-		return
-	}
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusBadRequest)
+    json.NewEncoder(w).Encode(map[string]string{
+        "message": "Invalid airport code or search parameters",
+        "details": err.Error(),
+    })
+    return
+}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(result)
