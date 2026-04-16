@@ -90,6 +90,12 @@ function kickoffTime(kickoff: string): string {
   return new Date(kickoff).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function durationToMinutes(iso: string): number {
+  const hours = parseInt(iso.match(/(\d+)H/)?.[1] || '0');
+  const minutes = parseInt(iso.match(/(\d+)M/)?.[1] || '0');
+  return hours * 60 + minutes;
+}
+
 // ─── Toast Notification ───────────────────────────────────────────────────────
 
 function Toast({
@@ -329,7 +335,7 @@ function FlightCard({
 
 // ─── Sort Dropdown ────────────────────────────────────────────────────────────
 
-type SortOrder = 'asc' | 'desc';
+type SortOrder = 'price_asc' | 'price_desc' | 'duration_asc' | 'time_asc' | 'nonstop_first';
 
 function SortDropdown({ sortOrder, setSortOrder }: { sortOrder: SortOrder; setSortOrder: (s: SortOrder) => void }) {
   const [open, setOpen] = useState(false);
@@ -344,11 +350,14 @@ function SortDropdown({ sortOrder, setSortOrder }: { sortOrder: SortOrder; setSo
   }, []);
 
   const options: { label: string; value: SortOrder }[] = [
-    { label: 'Price: Low to High', value: 'asc' },
-    { label: 'Price: High to Low', value: 'desc' },
-  ];
+  { label: 'Price: Low to High', value: 'price_asc' },
+  { label: 'Price: High to Low', value: 'price_desc' },
+  { label: 'Fastest Flight', value: 'duration_asc' },
+  { label: 'Earliest Arrival', value: 'time_asc' },
+  { label: 'Non-stop First', value: 'nonstop_first' },
+];
 
-  const current = options.find(o => o.value === sortOrder)!;
+  const current = options.find(o => o.value === sortOrder) || options[0];
 
   return (
     <div className="relative" ref={ref}>
@@ -400,7 +409,7 @@ export default function SearchPage() {
   const [isLoadingMatches, setIsLoadingMatches] = useState(true);
   const [isLoadingFlights, setIsLoadingFlights] = useState(false);
   const [error,            setError]            = useState('');
-  const [sortOrder,        setSortOrder]        = useState<SortOrder>('asc');
+  const [sortOrder,        setSortOrder]        = useState<SortOrder>('price_asc');
 
   // Track saved + saving state per offer
   const [savedOfferIds, setSavedOfferIds]   = useState<Set<string>>(new Set());
@@ -414,12 +423,41 @@ export default function SearchPage() {
     onAction?: () => void;
   } | null>(null);
 
-  const sortedOffers = [...offers].sort((a, b) => {
-    const diff = parseFloat(a.total_amount) - parseFloat(b.total_amount);
-    return sortOrder === 'asc' ? diff : -diff;
+  const filteredOffers = offers.filter(offer => {
+    if (!activeMatch) return true;
+    
+    const kickoffTime = new Date(activeMatch.kickoff).getTime();
+    const arrivalTime = new Date(
+      offer.slices[0].segments[offer.slices[0].segments.length - 1].arriving_at
+    ).getTime();
+
+    return arrivalTime < kickoffTime;
+  });
+
+  const sortedOffers = [...filteredOffers].sort((a, b) => {
+    switch (sortOrder) {
+      case 'price_asc':
+        return parseFloat(a.total_amount) - parseFloat(b.total_amount);
+      case 'price_desc':
+        return parseFloat(b.total_amount) - parseFloat(a.total_amount);
+      case 'duration_asc':
+        return durationToMinutes(a.slices[0].duration) - durationToMinutes(b.slices[0].duration);
+      case 'time_asc':
+        const arrivalA = new Date(a.slices[0].segments[a.slices[0].segments.length - 1].arriving_at).getTime();
+        const arrivalB = new Date(b.slices[0].segments[b.slices[0].segments.length - 1].arriving_at).getTime();
+        return arrivalA - arrivalB;
+      case 'nonstop_first':
+        const stopsA = a.slices[0].segments.length - 1;
+        const stopsB = b.slices[0].segments.length - 1;
+        return stopsA - stopsB;
+      default:
+        return 0;
+    }
   });
 
   const handleSaveTrip = async (offer: Offer) => {
+    if (savedOfferIds.has(offer.id)) return;
+    
     if (!isAuthenticated) {
       loginWithRedirect({
         appState: { returnTo: window.location.pathname + window.location.search },
@@ -446,6 +484,17 @@ export default function SearchPage() {
           departure_date: new Date(offer.slices[0].segments[0].departing_at).toISOString(),
         }),
       });
+
+      if (response.status === 409) {
+        setToast({
+          message: 'You already saved this trip!',
+          type: 'error',
+          actionLabel: 'View Dashboard',
+          onAction: () => navigate('/dashboard'),
+        });
+        setSavedOfferIds((prev) => new Set(prev).add(offer.id));
+        return;
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -509,12 +558,34 @@ export default function SearchPage() {
         departure_date: kickoffToDate(activeMatch.kickoff),
       }),
     })
-      .then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); })
+      .then(async r => { 
+        if (!r.ok) {
+          const errorData = await r.json().catch(() => ({})); 
+          throw new Error(errorData.message || r.status.toString()); 
+        }
+        return r.json(); 
+      })
       .then(data => {
         const raw = data?.data?.offers ?? data?.offers ?? data ?? [];
         setOffers(Array.isArray(raw) ? raw : []);
       })
-      .catch(e => setError(e.message || 'Flight search failed.'))
+      .catch(e => {
+        const msg = e.message.toLowerCase();
+        console.log("Caught search error:", msg);
+
+        const isValidationError = 
+          msg.includes('400') || 
+          msg.includes('502') || 
+          msg.includes('airport') || 
+          msg.includes('invalid_identifier') || 
+          msg.includes('not_found');
+
+        if (isValidationError) {
+          setError(`"${origin}" is not a recognized airport code. Please try a major hub like MCO, JAX, or MIA.`);
+        } else {
+          setError('Flight search failed. Our flight engine is having trouble connecting.');
+        }
+      })
       .finally(() => setIsLoadingFlights(false));
   }, [activeMatch, origin]);
 

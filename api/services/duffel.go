@@ -107,3 +107,19 @@ func (c *DuffelClient) SearchFlights(req FlightSearchRequest) (json.RawMessage, 
 
 	return json.RawMessage(respBody), nil
 }
+
+func (c *DuffelClient) SuggestAirports(lat, lng string) ([]byte, error) {
+    url := fmt.Sprintf("https://api.duffel.com/air/places/suggestions?lat=%s&lng=%s&rad=200", lat, lng)
+    req, _ := http.NewRequest("GET", url, nil)
+    
+    req.Header.Set("Authorization", "Bearer "+c.token) 
+    req.Header.Set("Duffel-Version", "v1")
+
+    resp, err := c.httpClient.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    return io.ReadAll(resp.Body)
+}

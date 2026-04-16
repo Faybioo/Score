@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Trophy, Calendar, Plane, Search, LogOut, Loader2,
-  MapPin, ArrowRight, Trash2, ExternalLink
+  MapPin, ArrowRight, Trash2, ExternalLink, ShieldCheck
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -182,6 +182,9 @@ export default function Dashboard() {
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [error, setError] = useState('');
 
+  const roles = (user as any)?.['https://score-app.com/roles'] || [];
+  const isAdmin = roles.some((role: string) => role.toLowerCase() === 'admin');
+
   // Sync user on login
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -237,19 +240,22 @@ export default function Dashboard() {
 
   // Delete a saved trip
   const handleDelete = async (tripId: number) => {
-    if (!confirm('Remove this saved itinerary?')) return;
-    try {
-      const token = await getAccessTokenSilently();
-      const res = await fetch(`http://localhost:8080/api/trips/${tripId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Delete failed');
-      setTrips((prev) => prev.filter((t) => t.id !== tripId));
-    } catch (err) {
-      console.error('Failed to delete trip:', err);
-    }
-  };
+  if (!confirm('Remove this saved itinerary?')) return;
+  try {
+    const token = await getAccessTokenSilently();
+    const res = await fetch(`http://localhost:8080/api/trips/${tripId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    
+    if (!res.ok) throw new Error('Delete failed');
+    
+    setTrips((prev) => prev.filter((t) => t.id !== tripId));
+  } catch (err) {
+    console.error('Failed to delete trip:', err);
+    alert('Could not remove trip. Please try again.');
+  }
+};
 
   if (isLoading) {
     return (
@@ -280,6 +286,15 @@ export default function Dashboard() {
             <span className="text-2xl font-bold tracking-tighter">Score!</span>
           </div>
           <div className="flex items-center gap-6">
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="flex items-center gap-1.5 text-sm font-bold text-red-400 hover:text-red-300 transition-colors mr-2"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Admin
+              </button>
+            )}
             <Button
               onClick={() => navigate('/')}
               className="flex items-center gap-2 text-sm text-white/60 hover:text-yellow-500 transition-colors"

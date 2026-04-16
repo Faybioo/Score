@@ -97,6 +97,7 @@ func main() {
 	})
 
 	r.Post("/api/flights/search", handlers.SearchFlights)
+	r.Get("/api/airports/nearby", handlers.GetNearbyAirport)
 
 	//must be logged in as USER
 	r.Group(func(r chi.Router) {
@@ -107,10 +108,13 @@ func main() {
 
 		r.Post("/api/trips/save", handlers.SaveTrip(db))
 		r.Get("/api/trips", handlers.GetTrips(db))
+		r.Delete("/api/trips/{id}", handlers.DeleteTrip(db))
 
 		// admin endpoints for matches table
 		r.Put("/api/matches/{id}", handlers.UpdateMatch(db))
 		r.Delete("/api/matches/{id}", handlers.DeleteMatch(db))
+
+		r.Get("/api/admin/user-count", handlers.GetUserCount(db))
 	})
 
 	port := os.Getenv("API_PORT")

@@ -26,12 +26,23 @@ func SaveTrip(db *sql.DB) http.HandlerFunc {
 		}
 		trip.Auth0ID = tokenClaims.RegisteredClaims.Subject
 
+		var exists bool
+    checkQuery := `SELECT EXISTS(SELECT 1 FROM trips WHERE auth0_id = $1 AND flight_offer_id = $2)`
+    err := db.QueryRow(checkQuery, trip.Auth0ID, trip.FlightOfferID).Scan(&exists)
+    
+    if exists {
+      w.Header().Set("Content-Type", "application/json")
+      w.WriteHeader(http.StatusConflict)
+      json.NewEncoder(w).Encode(map[string]string{"message": "This itinerary is already in your dashboard!"})
+      return
+    }
+
 		query := `
 			INSERT INTO trips (auth0_id, match_id, flight_offer_id, origin, destination, departure_date, return_date, cabin_class, total_amount)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id, created_at
 		`
-		err := db.QueryRow(query,
+		err = db.QueryRow(query,
 			trip.Auth0ID, trip.MatchID, trip.FlightOfferID,
 			trip.Origin, trip.Destination, trip.DepartureDate,
 			trip.ReturnDate, trip.CabinClass, trip.TotalAmount,

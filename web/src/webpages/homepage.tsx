@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Trophy, Plane, Calendar, MapPin, Search, ArrowRight, Loader2 } from 'lucide-react';
+import { Trophy, Plane, Calendar, MapPin, Search, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -40,9 +40,11 @@ const CITY_DATA: Record<string, { country: string; code: string }> = {
 };
 
 export default function Homepage() {
-  const { logout, isAuthenticated, isLoading: authLoading } = useAuth0();
+  const { user, logout, isAuthenticated, isLoading: authLoading } = useAuth0();
   const navigate = useNavigate();
   const { originCode, isDetecting } = useNearestAirport();
+
+  const [manualOrigin, setManualOrigin] = useState('');
 
   const [matches,       setMatches]       = useState<Match[]>([]);
   const [isLoading,     setIsLoading]     = useState(true);
@@ -50,6 +52,13 @@ export default function Homepage() {
   const [selectedMatch, setSelectedMatch] = useState('');
   const [selectedTeam,  setSelectedTeam]  = useState('');
   const [selectedCity,  setSelectedCity]  = useState('');
+
+  const roles = (user as any)?.['https://score-app.com/roles'] || [];
+  const isAdmin = roles.some((role: string) => role.toLowerCase() === 'admin');
+
+  useEffect(() => {
+    if (originCode) setManualOrigin(originCode);
+  }, [originCode]);
 
   useEffect(() => {
     fetch('http://localhost:8080/api/matches')
@@ -67,22 +76,39 @@ export default function Homepage() {
 
   const uniqueCities = Array.from(new Set(matches.map(m => m.host_city))).sort();
 
-  // Build search URL always including origin
-  const buildSearchUrl = (type: string, q: string) =>
-    `/search?type=${type}&q=${encodeURIComponent(q)}&origin=${originCode}`;
+  const buildSearchUrl = (type: string, q: string) => {
+    const finalOrigin = manualOrigin.trim().toUpperCase() || originCode || 'JFK';
+    return `/search?type=${type}&q=${encodeURIComponent(q)}&origin=${finalOrigin}`;
+  };
 
   const handleSearch = () => {
     const query =
       searchType === 'match' ? selectedMatch :
       searchType === 'team'  ? selectedTeam  :
       selectedCity;
-    if (!query) return;
+
+    if (!query || !manualOrigin) {
+      alert("Please select a match and a departure airport.");
+      return;
+    }
+
+    if (manualOrigin.length !== 3 || !/^[A-Z]{3}$/.test(manualOrigin)) {
+      alert("Please enter a valid 3-letter airport code (e.g., MCO).");
+      return;
+    }
+
     navigate(buildSearchUrl(searchType, query));
   };
 
   const handleCityClick = (cityName: string) => {
-    navigate(buildSearchUrl('city', cityName));
-  };
+  const origin = manualOrigin.trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(origin)) {
+    alert("Please enter a valid 3-letter departure airport code first!");
+    scrollToSection('hero');
+    return;
+  }
+  navigate(buildSearchUrl('city', cityName));
+};
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -107,6 +133,16 @@ export default function Homepage() {
             {!authLoading && (
               isAuthenticated ? (
                 <>
+                  {isAdmin && (
+                    <button
+                      onClick={() => navigate('/admin')}
+                      className="flex items-center gap-1.5 text-sm font-bold text-red-400 hover:text-red-300 transition-colors mr-2"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      Admin
+                    </button>
+                  )}
+
                   <button
                     onClick={() => navigate('/dashboard')}
                     className="text-sm font-medium text-white/60 hover:text-yellow-500 transition-colors mr-2"
@@ -146,17 +182,41 @@ export default function Homepage() {
             Book flights and hotels for the 2026 FIFA World Cup. Follow your team across North America.
           </p>
 
-          {/* Origin indicator */}
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <div className={`w-2 h-2 rounded-full ${isDetecting ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
-            <span className="text-xs text-white/35">
-              {isDetecting
-                ? 'Detecting your location…'
-                : `Searching flights from ${originCode}`}
-            </span>
+          {/* Search and Origin */}
+          <div className="mb-6 space-y-2">
+            <div className="flex justify-between items-end px-1">
+              <Label className="text-white/40 text-[10px] uppercase tracking-widest font-bold">
+                Flying From
+              </Label>
+              <div className="flex items-center gap-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${isDetecting ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
+                <span className="text-[10px] text-white/25">
+                  {isDetecting ? 'Locating...' : 'Auto-detected'}
+                </span>
+              </div>
+            </div>
+            <div className="relative group">
+              <Plane className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-yellow-500 transition-colors group-focus-within:text-yellow-400" />
+              <input 
+                type="text"
+                value={manualOrigin}
+                onChange={(e) => setManualOrigin(e.target.value.toUpperCase())}
+                placeholder="Airport Code (e.g. GNV)"
+                maxLength={3}
+                className="w-full bg-[#1A3A2E]/40 border border-white/10 rounded-xl h-14 pl-12 pr-4 text-white font-mono text-lg focus:border-yellow-500/50 outline-none transition-all placeholder:text-white/10"
+              />
+              {manualOrigin !== originCode && (
+                <button 
+                  onClick={() => setManualOrigin(originCode)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-yellow-500 hover:text-yellow-400 transition-colors"
+                >
+                  RESET
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="max-w-2xl mx-auto bg-[#122620] border border-white/10 p-6 md:p-8 rounded-3xl shadow-2xl backdrop-blur-sm text-left">
+          <div className="max-/w-2xl mx-auto bg-[#122620] border border-white/10 p-6 md:p-8 rounded-3xl shadow-2xl backdrop-blur-sm text-left">
             <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'match' | 'team' | 'city')}>
               <TabsList className="grid w-full grid-cols-3 mb-8 bg-[#1A3A2E] p-1 rounded-xl">
                 <TabsTrigger value="match">Match</TabsTrigger>
@@ -252,8 +312,16 @@ export default function Homepage() {
                 <Button
                   size="sm"
                   className="mt-4 w-full bg-yellow-600 text-black font-bold hover:bg-yellow-500 text-xs h-8"
-                  onClick={() => navigate(buildSearchUrl('match', match.id.toString()))}
-                >
+                  onClick={() => {
+                      const origin = manualOrigin.trim().toUpperCase();
+                      if (!/^[A-Z]{3}$/.test(origin)) {
+                        alert("Please enter a valid departure airport code above!");
+                        scrollToSection('hero');
+                        return;
+                      }
+                      navigate(buildSearchUrl('match', match.id.toString()));
+                    }}            
+                  >
                   Book Now <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               </Card>
