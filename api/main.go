@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"fmt"
+	"os"
 	"log"
 	"encoding/json"
 
@@ -112,8 +113,14 @@ func main() {
 		r.Delete("/api/matches/{id}", handlers.DeleteMatch(db))
 	})
 
-	fmt.Printf("API listening on :8080...")
-	http.ListenAndServe(":8080", r)
+	port := os.Getenv("API_PORT")
+	if port == "" {
+		fmt.Printf("API_PORT environment variable not found, defaulting to 8080")
+		port = "8080"
+	}
+
+	fmt.Printf("API listening on :%s...", port)
+	http.ListenAndServe(":"+port, r)
 }
 
 
