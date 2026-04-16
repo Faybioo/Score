@@ -10,6 +10,7 @@ import (
 )
 
 func ConnectDB() *sql.DB {
+	connStr := os.Getenv("DB_URL")
 	user := os.Getenv("DB_USER")
 	pass := os.Getenv("DB_PASSWORD")
 	name := os.Getenv("DB_NAME") 
@@ -17,8 +18,9 @@ func ConnectDB() *sql.DB {
 	port := "5432"
 
 	// postgres://user:password@host:port/dbname?sslmode=disable
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, name)
-
+	if connStr == "" {
+		connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, name)
+	}
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal("Could not connect to the database:", err)
