@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router';
 import {
   Plane, MapPin, ArrowRight,
-  ArrowLeft, Trophy, AlertCircle, ChevronDown
+  ArrowLeft, Trophy, AlertCircle, ChevronDown, Check, X
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -90,6 +90,53 @@ function kickoffTime(kickoff: string): string {
   return new Date(kickoff).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+// ─── Toast Notification ───────────────────────────────────────────────────────
+
+function Toast({
+  message,
+  type,
+  onClose,
+  onAction,
+  actionLabel,
+}: {
+  message: string;
+  type: 'success' | 'error';
+  onClose: () => void;
+  onAction?: () => void;
+  actionLabel?: string;
+}) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3 rounded-xl border shadow-2xl backdrop-blur-md animate-[slideUp_0.3s_ease-out] ${
+      type === 'success'
+        ? 'bg-green-900/80 border-green-500/30 text-green-100'
+        : 'bg-red-900/80 border-red-500/30 text-red-100'
+    }`}>
+      {type === 'success' ? (
+        <Check className="h-4 w-4 text-green-400 shrink-0" />
+      ) : (
+        <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+      )}
+      <span className="text-sm font-medium">{message}</span>
+      {onAction && actionLabel && (
+        <button
+          onClick={onAction}
+          className="text-sm font-bold text-yellow-400 hover:text-yellow-300 transition-colors ml-2 whitespace-nowrap"
+        >
+          {actionLabel}
+        </button>
+      )}
+      <button onClick={onClose} className="ml-2 text-white/40 hover:text-white/80 transition-colors">
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function SkeletonCard() {
@@ -129,7 +176,19 @@ function SkeletonCard() {
 
 // ─── Flight Card ──────────────────────────────────────────────────────────────
 
-function FlightCard({ offer, match, onSave }: { offer: Offer; match: Match, onSave: (offer: Offer) => void }) {
+function FlightCard({
+  offer,
+  match,
+  onSave,
+  isSaved,
+  isSaving,
+}: {
+  offer: Offer;
+  match: Match;
+  onSave: (offer: Offer) => void;
+  isSaved: boolean;
+  isSaving: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const slice    = offer.slices[0];
   const firstSeg = slice.segments[0];
@@ -210,10 +269,28 @@ function FlightCard({ offer, match, onSave }: { offer: Offer; match: Match, onSa
           </p>
           <p className="text-[9px] text-white/20 mt-1">includes flight</p>
         </div>
-        <Button 
+        <Button
           onClick={() => onSave(offer)}
-          className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-xl px-5 h-9 text-sm shadow-lg shadow-yellow-900/20">
-          Save Itinerary
+          disabled={isSaved || isSaving}
+          className={`font-bold rounded-xl px-5 h-9 text-sm shadow-lg transition-all ${
+            isSaved
+              ? 'bg-green-600/20 text-green-400 border border-green-500/30 cursor-default shadow-none'
+              : 'bg-yellow-600 hover:bg-yellow-500 text-black shadow-yellow-900/20'
+          }`}
+        >
+          {isSaving ? (
+            <>
+              <span className="h-3.5 w-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin mr-2" />
+              Saving…
+            </>
+          ) : isSaved ? (
+            <>
+              <Check className="h-3.5 w-3.5 mr-1.5" />
+              Saved
+            </>
+          ) : (
+            'Save Itinerary'
+          )}
         </Button>
       </div>
 
@@ -307,8 +384,8 @@ function SortDropdown({ sortOrder, setSortOrder }: { sortOrder: SortOrder; setSo
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
-  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
-  
+  const { getAccessTokenSilently, isAuthenticated, loginWithRedirect } = useAuth0();
+
   const [searchParams]      = useSearchParams();
   const navigate            = useNavigate();
 
@@ -325,6 +402,18 @@ export default function SearchPage() {
   const [error,            setError]            = useState('');
   const [sortOrder,        setSortOrder]        = useState<SortOrder>('asc');
 
+  // Track saved + saving state per offer
+  const [savedOfferIds, setSavedOfferIds]   = useState<Set<string>>(new Set());
+  const [savingOfferId, setSavingOfferId]   = useState<string | null>(null);
+
+  // Toast state
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null>(null);
+
   const sortedOffers = [...offers].sort((a, b) => {
     const diff = parseFloat(a.total_amount) - parseFloat(b.total_amount);
     return sortOrder === 'asc' ? diff : -diff;
@@ -332,9 +421,13 @@ export default function SearchPage() {
 
   const handleSaveTrip = async (offer: Offer) => {
     if (!isAuthenticated) {
-      alert("Please log in to save trips!");
+      loginWithRedirect({
+        appState: { returnTo: window.location.pathname + window.location.search },
+      });
       return;
     }
+
+    setSavingOfferId(offer.id);
 
     try {
       const token = await getAccessTokenSilently();
@@ -342,23 +435,38 @@ export default function SearchPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           match_id: activeMatch?.id,
-          offer_id: offer.id,
-          price: offer.total_amount,
+          flight_offer_id: offer.id,
+          total_amount: parseFloat(offer.total_amount) || 0,
           origin: offer.slices[0].origin.iata_code,
           destination: offer.slices[0].destination.iata_code,
-          departure_date: offer.slices[0].segments[0].departing_at
+          departure_date: new Date(offer.slices[0].segments[0].departing_at).toISOString(),
         }),
       });
 
-      if (response.ok) {
-        alert("Trip saved successfully!");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Save failed');
       }
-    } catch (err) {
-      console.error("Save failed:", err);
+
+      setSavedOfferIds((prev) => new Set(prev).add(offer.id));
+      setToast({
+        message: 'Itinerary saved!',
+        type: 'success',
+        actionLabel: 'View My Trips',
+        onAction: () => navigate('/dashboard'),
+      });
+    } catch (err: any) {
+      console.error('Save failed:', err);
+      setToast({
+        message: err.message || 'Could not save itinerary. Try again.',
+        type: 'error',
+      });
+    } finally {
+      setSavingOfferId(null);
     }
   };
 
@@ -390,6 +498,7 @@ export default function SearchPage() {
 
     setIsLoadingFlights(true);
     setError('');
+    setSavedOfferIds(new Set()); // Reset saved state when match changes
 
     fetch('http://localhost:8080/api/flights/search', {
       method: 'POST',
@@ -409,11 +518,21 @@ export default function SearchPage() {
       .finally(() => setIsLoadingFlights(false));
   }, [activeMatch, origin]);
 
-  const isLoading    = isLoadingMatches || isLoadingFlights;
-  const primaryMatch = relevantMatches[0];
+  const isLoading = isLoadingMatches || isLoadingFlights;
 
   return (
     <div className="min-h-screen bg-[#0A1612] text-white font-sans">
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+          onAction={toast.onAction}
+          actionLabel={toast.actionLabel}
+        />
+      )}
 
       {/* Header */}
       <header className="border-b border-white/8 bg-[#0A1612]/90 backdrop-blur-md sticky top-0 z-50">
@@ -442,8 +561,8 @@ export default function SearchPage() {
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold font-serif mb-1">
-            {searchType === 'team' ? `Follow ${query}` : 
-            searchType === 'city' ? `Matches in ${query}` : 
+            {searchType === 'team' ? `Follow ${query}` :
+            searchType === 'city' ? `Matches in ${query}` :
             'Travel Packages'}
           </h1>
           <p className="text-white/30 text-sm">
@@ -452,10 +571,10 @@ export default function SearchPage() {
         </div>
 
         {relevantMatches.length > 1 && (
-          <div className="mb-8 overflow-x-auto pb-4 flex gap-3 
-            scrollbar-thin 
-            scrollbar-thumb-yellow-600/20 
-            scrollbar-track-white/5 
+          <div className="mb-8 overflow-x-auto pb-4 flex gap-3
+            scrollbar-thin
+            scrollbar-thumb-yellow-600/20
+            scrollbar-track-white/5
             hover:scrollbar-thumb-yellow-600/40
             [&::-webkit-scrollbar]:h-1.5
             [&::-webkit-scrollbar-track]:bg-white/5
@@ -473,8 +592,8 @@ export default function SearchPage() {
                   key={m.id}
                   onClick={() => setActiveMatch(m)}
                   className={`shrink-0 p-4 rounded-xl border transition-all text-left min-w-[200px] ${
-                    activeMatch?.id === m.id 
-                      ? 'bg-yellow-600/10 border-yellow-600/50' 
+                    activeMatch?.id === m.id
+                      ? 'bg-yellow-600/10 border-yellow-600/50'
                       : 'bg-white/5 border-white/5 hover:border-white/10'
                   }`}
                 >
@@ -523,11 +642,26 @@ export default function SearchPage() {
         ) : activeMatch ? (
           <div className="space-y-4">
             {sortedOffers.map(offer => (
-              <FlightCard key={offer.id} offer={offer} match={activeMatch} onSave={handleSaveTrip} />
+              <FlightCard
+                key={offer.id}
+                offer={offer}
+                match={activeMatch}
+                onSave={handleSaveTrip}
+                isSaved={savedOfferIds.has(offer.id)}
+                isSaving={savingOfferId === offer.id}
+              />
             ))}
           </div>
         ) : null}
       </main>
+
+      {/* Slide-up animation for toast */}
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to   { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
     </div>
   );
 }
