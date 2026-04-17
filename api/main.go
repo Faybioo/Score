@@ -51,7 +51,7 @@ func main() {
 	r.Use(chiMiddleware.Recoverer)
 
   c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:5174"},
+		AllowedOrigins: []string{"http://localhost:5173", "http://localhost:5174", "https://score-k184.onrender.com"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders: []string{"Link"},
