@@ -8,6 +8,8 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { useAuth0 } from '@auth0/auth0-react';
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Match {
@@ -469,7 +471,7 @@ export default function SearchPage() {
 
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch('http://localhost:8080/api/trips/save', {
+      const response = await fetch(`${apiUrl}/api/trips/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -520,7 +522,7 @@ export default function SearchPage() {
   };
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/matches')
+    fetch(`${apiUrl}/api/matches`)
       .then(r => r.json())
       .then((data: Match[]) => setAllMatches(data || []))
       .catch(() => setError('Could not load match data.'))
@@ -549,7 +551,7 @@ export default function SearchPage() {
     setError('');
     setSavedOfferIds(new Set()); // Reset saved state when match changes
 
-    fetch('http://localhost:8080/api/flights/search', {
+    fetch(`${apiUrl}/api/flights/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

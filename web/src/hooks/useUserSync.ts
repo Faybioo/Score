@@ -1,6 +1,8 @@
 import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect, useState } from "react";
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 export const useUserSync = () => {
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const [isSynced, setIsSynced] = useState(false);
@@ -13,7 +15,7 @@ export const useUserSync = () => {
           const token = await getAccessTokenSilently();
 
           // send to go
-          const response = await fetch("http://localhost:8080/api/user/sync", {
+          const response = await fetch(`${apiUrl}/api/user/sync`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

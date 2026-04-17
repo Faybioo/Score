@@ -8,6 +8,8 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { useAuth0 } from '@auth0/auth0-react';
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SavedTrip {
@@ -197,7 +199,7 @@ export default function Dashboard() {
       if (isAuthenticated && user) {
         try {
           const token = await getAccessTokenSilently();
-          await fetch('http://localhost:8080/api/user/sync', {
+          await fetch(`${apiUrl}/api/user/sync`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -222,7 +224,7 @@ export default function Dashboard() {
       if (!isAuthenticated) return;
       try {
         const token = await getAccessTokenSilently();
-        const res = await fetch('http://localhost:8080/api/trips', {
+        const res = await fetch(`${apiUrl}/api/trips`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Failed to load trips');
@@ -243,7 +245,7 @@ export default function Dashboard() {
   if (!confirm('Remove this saved itinerary?')) return;
   try {
     const token = await getAccessTokenSilently();
-    const res = await fetch(`http://localhost:8080/api/trips/${tripId}`, {
+    const res = await fetch(`${apiUrl}/api/trips/${tripId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

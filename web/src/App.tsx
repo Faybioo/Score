@@ -21,8 +21,9 @@ export default function App() {
   const [isApiReady, setIsApiReady] = useState(false);
 
   useEffect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
     // Check if Docker API is alive
-    fetch('http://localhost:8080/api/health')
+    fetch(`${apiUrl}/api/health`)
       .then(res => {
         if (res.ok) setIsApiReady(true);
       })

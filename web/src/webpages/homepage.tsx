@@ -10,6 +10,8 @@ import { Card } from '../components/ui/card';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useNearestAirport } from '../hooks/useNearestAirport';
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 interface Match {
   id: number;
   kickoff: string;
@@ -61,7 +63,7 @@ export default function Homepage() {
   }, [originCode]);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/matches')
+    fetch(`${apiUrl}/api/matches`)
       .then(r => r.json())
       .then(data => setMatches(data || []))
       .catch(e => console.error('Error fetching matches:', e))

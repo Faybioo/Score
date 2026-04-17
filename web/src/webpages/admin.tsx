@@ -8,6 +8,8 @@ import {
   Plus, Users, Trophy, Activity, type LucideIcon
 } from 'lucide-react';
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 interface Match {
   id: number;
   home_team: string;
@@ -47,7 +49,7 @@ export default function Admin() {
     const fetchStats = async () => {
       try {
         const token = await getAccessTokenSilently();
-        const response = await fetch('http://localhost:8080/api/admin/user-count', {
+        const response = await fetch(`${apiUrl}/api/admin/user-count`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await response.json();
@@ -64,7 +66,7 @@ export default function Admin() {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/matches');
+        const response = await fetch(`${apiUrl}/api/matches`);
         const data = await response.json();
         setMatches(data);
       } catch (err) {
@@ -80,7 +82,7 @@ export default function Admin() {
     if (!window.confirm("Are you sure you want to remove this match?")) return;
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch(`http://localhost:8080/api/matches/${id}`, {
+      const response = await fetch(`${apiUrl}/api/matches/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -113,7 +115,7 @@ export default function Admin() {
             audience: 'https://score-loginapi.com',
           }
         });
-        const response = await fetch(`http://localhost:8080/api/matches/${editingMatch.id}`, {
+        const response = await fetch(`${apiUrl}/api/matches/${editingMatch.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

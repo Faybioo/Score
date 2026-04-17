@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 async function getLocationFromIP(): Promise<{ lat: number; lng: number } | null> {
   try {
     const res = await fetch('http://ip-api.com/json/?fields=lat,lon,status');
@@ -34,7 +36,7 @@ export function useNearestAirport() {
       if (!cancelled && loc) {
         try {
           // Calling your Go backend
-          const res = await fetch(`http://localhost:8080/api/airports/nearby?lat=${loc.lat}&lng=${loc.lng}`);
+          const res = await fetch(`${apiUrl}/api/airports/nearby?lat=${loc.lat}&lng=${loc.lng}`);
           
           if (!res.ok) throw new Error("Backend error");
           
