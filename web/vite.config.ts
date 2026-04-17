@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    allowedHosts: ['score-k184.onrender.com'],
     watch: {
       usePolling: true,
     },
