@@ -425,16 +425,9 @@ export default function SearchPage() {
     onAction?: () => void;
   } | null>(null);
 
-  const filteredOffers = offers.filter(offer => {
-    if (!activeMatch) return true;
-    
-    const kickoffTime = new Date(activeMatch.kickoff).getTime();
-    const arrivalTime = new Date(
-      offer.slices[0].segments[offer.slices[0].segments.length - 1].arriving_at
-    ).getTime();
-
-    return arrivalTime < kickoffTime;
-  });
+  // Temporarily remove strict time filter to handle API inconsistencies on live server
+  // TODO: Re-implement with proper timezone handling
+  const filteredOffers = offers;
 
   const sortedOffers = [...filteredOffers].sort((a, b) => {
     switch (sortOrder) {
