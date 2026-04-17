@@ -13,7 +13,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 COPY --from=0 /app/main .
-COPY .env .
 RUN chmod +x ./main
 
 EXPOSE 8080
