@@ -316,12 +316,10 @@ export default function Dashboard() {
           {stats.map((stat) => (
             <Card
               key={stat.label}
-              className="bg-[#122620] border-white/10 p-6 flex items-center justify-between"
+              className="bg-[#122620] border-white/10 p-6 flex flex-col items-center justify-center text-center gap-3"
             >
-              <div>
-                <p className="text-white/40 text-xs mb-2">{stat.label}</p>
-                <p className="text-3xl font-bold text-white">{stat.value}</p>
-              </div>
+              <p className="text-white/40 text-xs">{stat.label}</p>
+              <p className="text-3xl font-bold text-white">{stat.value}</p>
               <stat.icon className="h-10 w-10 text-yellow-600/60" />
             </Card>
           ))}

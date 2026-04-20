@@ -53,16 +53,17 @@ const onRedirectCallback = (_appState?: AppState, user?: ScoreUser) => {
 
   return (
     <Auth0Provider
-      domain={domain}
-      clientId={clientId}
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: audience, 
-      }}
-      onRedirectCallback={onRedirectCallback}
-      cacheLocation="localstorage"
-      useRefreshTokens={true}
-    >
+  domain={domain}
+  clientId={clientId}
+  authorizationParams={{
+    redirect_uri: window.location.origin,
+    audience: audience,
+    scope: "openid profile email offline_access"
+  }}
+  onRedirectCallback={onRedirectCallback}
+  cacheLocation="localstorage"
+  useRefreshTokens={true}
+>
       <div className="dark size-full">
         <RouterProvider router={router} />
         <Toaster />
