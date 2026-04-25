@@ -119,12 +119,12 @@ export default function Homepage() {
 
       {/* Header */}
       <header className="border-b border-white/10 bg-[#0A1612]/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between relative">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <Trophy className="h-8 w-8 text-yellow-500" />
             <span className="text-2xl font-bold tracking-tighter">Score!</span>
           </div>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60 absolute left-1/2 -translate-x-1/2">
             <button onClick={() => scrollToSection('hero')}         className="hover:text-yellow-500 transition-colors">Home</button>
             <button onClick={() => scrollToSection('matches')}      className="hover:text-yellow-500 transition-colors">Matches</button>
             <button onClick={() => scrollToSection('destinations')} className="hover:text-yellow-500 transition-colors">Destinations</button>
